@@ -18,6 +18,7 @@ let currentOffset = 0;
 let idOrdenEditando = null; 
 let repertorioGlobal = []; 
 window.listaLiturgiaActiva = [];
+window.usuarioActual = null; // Variable agregada para prevenir ReferenceError
 
 // ==========================================
 // 3. AUTENTICACIÓN Y CONTROL DE ACCESO
@@ -82,6 +83,9 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
 
     console.log(`✨ Bienvenido ${perfil.nombre}. Rol detectado: ${perfil.rol}`);
     
+    // Almacenar el usuario en la variable global
+    window.usuarioActual = { id: userId, email: userEmail, rol: perfil.rol, nombre: perfil.nombre };
+
     // Mostrar nombre en badge si existe el elemento
     const lblUser = document.getElementById('userNameDisplay');
     if (lblUser) lblUser.innerText = perfil.nombre || userEmail;
@@ -96,6 +100,10 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
 
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) loginScreen.classList.add('hidden');
+
+    // MOSTRAR EL BOTÓN DE BIBLIOTECA AL INICIAR SESIÓN
+    const btnBib = document.getElementById('btnBiblioteca');
+    if (btnBib) btnBib.classList.remove('hidden');
     
     await obtenerRepertorioGlobal();
     await cargarLiturgiaDelDia();
@@ -118,6 +126,7 @@ async function cerrarSesion() {
     cancionesDB = [];
     repertorioGlobal = [];
     window.listaLiturgiaActiva = [];
+    window.usuarioActual = null;
     activeSongId = null;
     idLiturgiaActiva = null;
     currentOffset = 0;
@@ -142,6 +151,10 @@ async function cerrarSesion() {
     const directorControls = document.getElementById('directorControls');
     if (directorControls) directorControls.classList.add('hidden');
 
+    // OCULTAR BOTÓN DE BIBLIOTECA AL CERRAR SESIÓN
+    const btnBib = document.getElementById('btnBiblioteca');
+    if (btnBib) btnBib.classList.add('hidden');
+
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) {
         loginScreen.classList.remove('hidden');
@@ -162,7 +175,6 @@ async function cerrarSesion() {
 
 async function cargarLiturgiaDelDia() {
     try {
-        // CORRECCIÓN CRÍTICA: Se mantiene la ordenación por posición
         const { data, error } = await _supabase
             .from('liturgia')
             .select('*')
@@ -173,7 +185,6 @@ async function cargarLiturgiaDelDia() {
         window.listaLiturgiaActiva = data || [];
         renderizarListaLiturgia(window.listaLiturgiaActiva);
 
-        // Si ya hay una canción activa, mantener actualizada su vista
         if (activeSongId) {
             renderizarCancionActiva();
         }
@@ -183,7 +194,6 @@ async function cargarLiturgiaDelDia() {
     }
 }
 
-// Escuchar cambios en vivo para mantener a todos los dispositivos sincronizados
 function suscribirACambiosLiturgia() {
     _supabase
         .channel('liturgia_realtime')
@@ -240,74 +250,6 @@ function cargarCancionDesdeRepertorio(idCancion) {
 // 5. RENDERIZADO DE LA INTERFAZ
 // ==========================================
 
-function renderizarListaLiturgia(lista) {
-    const items = Array.isArray(lista) ? lista : (window.listaLiturgiaActiva || []);
-    const contenedor = document.getElementById('liturgyList') || document.getElementById('listaLiturgia');
-    if (!contenedor) return;
-
-    contenedor.innerHTML = '';
-
-    if (!items || items.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No hay alabanzas agregadas.</p>`;
-        return;
-    }
-
-    const esDirector = currentRole === 'director';
-
-    items.forEach((item, index) => {
-        const itemDiv = document.createElement('div');
-        const esActivo = activeSongId === item.id;
-        
-        itemDiv.className = `p-3 rounded-xl border flex items-center justify-between gap-2 shadow-sm transition my-1.5 ${
-            esActivo ? 'bg-indigo-50 border-indigo-400 ring-1 ring-indigo-400' : 'bg-white border-slate-200 hover:border-indigo-300'
-        }`;
-
-        const momentoText = item.momento || item.momento_liturgico || 'PUNTO';
-        const tituloText = item.titulo || item.nombre || 'Sin título';
-        const tonoText = item.tono_original || item.tono || '-';
-
-        itemDiv.innerHTML = `
-            <div class="flex-1 cursor-pointer overflow-hidden" onclick="seleccionarElemento(${item.id})">
-                <span class="text-[10px] font-bold text-slate-400 uppercase block truncate">${index + 1}. ${momentoText}</span>
-                <p class="text-sm font-bold text-slate-800 truncate">${tituloText}</p>
-            </div>
-
-            <div class="flex items-center gap-1 shrink-0">
-                <span class="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-800 rounded-md">
-                    ${tonoText}
-                </span>
-
-                ${esDirector ? `
-                    <button type="button" onclick="event.stopPropagation(); moverPosicion(${index}, -1)" title="Subir" ${index === 0 ? 'disabled class="opacity-20 cursor-not-allowed text-slate-400 p-1"' : 'class="p-1 text-slate-500 hover:text-indigo-600 transition"'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-
-                    <button type="button" onclick="event.stopPropagation(); moverPosicion(${index}, 1)" title="Bajar" ${index === items.length - 1 ? 'disabled class="opacity-20 cursor-not-allowed text-slate-400 p-1"' : 'class="p-1 text-slate-500 hover:text-indigo-600 transition"'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
-                        </svg>
-                    </button>
-
-                    <button type="button" onclick="event.stopPropagation(); abrirEditarModal(${item.id})" title="Editar" class="p-1 text-slate-400 hover:text-amber-600 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                        </svg>
-                    </button>
-
-                    <button type="button" onclick="event.stopPropagation(); eliminarCancionDelOrden(${item.id}, '${tituloText.replace(/'/g, "\\'")}')" title="Eliminar" class="p-1 text-slate-400 hover:text-rose-600 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                    </button>
-                ` : ''}
-            </div>
-        `;
-        contenedor.appendChild(itemDiv);
-    });
-}
-
 function seleccionarElemento(id) {
     activeSongId = id;
     currentOffset = 0; 
@@ -347,7 +289,6 @@ function renderizarCancionActiva() {
         document.getElementById('originalTone').innerText = "-";
         document.getElementById('currentTone').innerText = "-";
         
-        // Ocultar botón de guardar si no hay canción seleccionada
         const btnGuardar = document.getElementById('btnGuardarTono');
         if (btnGuardar) btnGuardar.classList.add('hidden');
         return;
@@ -371,17 +312,9 @@ function renderizarCancionActiva() {
         document.getElementById('currentTone').innerText = "-";
     }
 
-    // ==========================================
-    // CONTROL DE VISIBILIDAD DEL BOTÓN GUARDAR
-    // ==========================================
     const btnGuardar = document.getElementById('btnGuardarTono');
     if (btnGuardar) {
-        // Solo se muestra si:
-        // 1. Es director
-        // 2. El punto actual es una alabanza (esCancion)
-        // 3. Se modificó la nota (currentOffset !== 0)
         const seCambioNota = currentOffset !== 0;
-        
         if (currentRole === 'director' && esCancion && seCambioNota) {
             btnGuardar.classList.remove('hidden');
         } else {
@@ -465,6 +398,7 @@ function renderizarCancionActiva() {
 
 function changeRole(role) {
     currentRole = role;
+    if (window.usuarioActual) window.usuarioActual.rol = role;
     
     const transposer = document.getElementById('transposerWidget');
     const director = document.getElementById('directorControls');
@@ -477,31 +411,29 @@ function changeRole(role) {
 }
 
 async function moverPosicion(index, direccion) {
-    let lista = window.listaLiturgiaActiva;
+    let lista = window.listaLiturgiaActiva || [];
     const nuevoIndex = index + direccion;
 
     if (nuevoIndex < 0 || nuevoIndex >= lista.length) return;
 
-    // Swapping local
     const temp = lista[index];
     lista[index] = lista[nuevoIndex];
     lista[nuevoIndex] = temp;
 
-    // Actualizar números de posición localmente
-    lista.forEach((item, idx) => item.posicion = idx + 1);
-
+    window.listaLiturgiaActiva = lista;
     renderizarListaLiturgia(lista);
 
-    // Persistir cambios en Supabase
     try {
-        for (let i = 0; i < lista.length; i++) {
-            await _supabase
+        const promesasActualizacion = lista.map((item, i) => 
+            _supabase
                 .from('liturgia')
                 .update({ posicion: i + 1 })
-                .eq('id', lista[i].id);
-        }
+                .eq('id', item.id)
+        );
+        
+        await Promise.all(promesasActualizacion);
     } catch (err) {
-        console.error("Error al reordenar la liturgia:", err);
+        console.error("Error al guardar la nueva posición en DB:", err);
     }
 }
 
@@ -535,42 +467,9 @@ function closeModal() {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
-    // CORRECCIÓN: Resetear el formulario e ID de edición al cerrar
     idOrdenEditando = null;
     const form = document.getElementById('directorForm');
     if (form) form.reset();
-}
-
-function abrirEditarModal(id) {
-    const item = window.listaLiturgiaActiva.find(i => i.id === id);
-    if (!item) return;
-
-    idOrdenEditando = id;
-
-    const tipo = item.tipo || (item.tono_original && item.tono_original !== '-' ? 'cancion' : 'general');
-    
-    document.getElementById('modalTipoPunto').value = tipo;
-    document.getElementById('modalMomento').value = item.momento || '';
-    document.getElementById('modalTitulo').value = item.titulo || '';
-
-    alternarCamposFormulario(tipo);
-
-    if (tipo === 'cancion') {
-        document.getElementById('modalTono').value = item.tono_original || 'C';
-        document.getElementById('modalLetra').value = item.letra_acordes || '';
-        if (item.cancion_id && document.getElementById('modalBuscarRepertorio')) {
-            document.getElementById('modalBuscarRepertorio').value = item.cancion_id;
-        }
-    } else {
-        if (document.getElementById('modalComentarios')) {
-            document.getElementById('modalComentarios').value = item.letra_acordes || '';
-        }
-    }
-
-    const btnSubmit = document.querySelector('#directorForm button[type="submit"]');
-    if (btnSubmit) btnSubmit.innerText = "Actualizar Elemento";
-
-    abrirModal();
 }
 
 function alternarCamposFormulario(tipo) {
@@ -705,7 +604,6 @@ async function guardarNuevaAlabanza(event) {
         }
         
         closeModal();
-        
         await obtenerRepertorioGlobal();
         await cargarLiturgiaDelDia();
 
@@ -721,7 +619,7 @@ async function guardarNuevaAlabanza(event) {
 }
 
 // ==========================================
-// 8. ACCIONES DE EDICIÓN Y ELIMINACIÓN
+// 9. ACCIONES DE EDICIÓN Y ELIMINACIÓN
 // ==========================================
 
 async function abrirEditarModal(idOrden) {
@@ -775,228 +673,6 @@ async function eliminarCancionDelOrden(idOrdenRow, nombrePunto) {
         if (activeSongId === idOrdenRow) activeSongId = null; 
         await cargarLiturgiaDelDia(); 
         if (typeof renderizarCancionActiva === 'function') renderizarCancionActiva();
-    }
-}
-
-// ==========================================
-// 9. EVENTOS DE INICIALIZACIÓN
-// ==========================================
-
-window.addEventListener('DOMContentLoaded', async () => {
-    const transposer = document.getElementById('transposerWidget');
-    const director = document.getElementById('directorControls');
-    const loginScreen = document.getElementById('loginScreen');
-
-    if (transposer) transposer.classList.add('hidden');
-    if (director) director.classList.add('hidden');
-
-    console.log("🔍 Verificando sesión activa de Supabase...");
-    const { data: { session } } = await _supabase.auth.getSession();
-
-    if (session && session.user) {
-        console.log("♻️ Sesión recuperada automáticamente:", session.user.email);
-        if (typeof obtenerRolUsuario === 'function') {
-            await obtenerRolUsuario(session.user.id, session.user.email, null);
-        }
-    } else {
-        if (loginScreen) loginScreen.classList.remove('hidden');
-        console.log("🚀 Portal listo y esperando autenticación manual...");
-    }
-});
-
-// ==========================================
-// 10. ADMINISTRACIÓN Y BORRADO MASIVO
-// ==========================================
-
-async function vaciarOrdenDelDia() {
-    const confirmar1 = confirm("⚠️ ¿Estás seguro de que deseas LIMPIAR TODO el orden del día?\nEsta acción eliminará todas las actividades y cantos programados para hoy.");
-    if (!confirmar1) return;
-
-    const confirmar2 = confirm("🚨 ¡Atención! Esta acción no se puede deshacer. ¿Proceder con el borrado completo?");
-    if (!confirmar2) return;
-
-    try {
-        const { error } = await _supabase
-            .from('liturgia')
-            .delete()
-            .neq('id', 0); // Elimina todos los registros
-
-        if (error) throw error;
-
-        alert("🗑️ El orden del día ha sido vaciado por completo.");
-        
-        // Resetear estados visuales y recargar interfaz
-        activeSongId = null;
-        await cargarLiturgiaDelDia();
-        
-        // Limpiar el panel derecho (vista activa)
-        if (document.getElementById('songTitle')) document.getElementById('songTitle').innerText = "Selecciona una Alabanza";
-        if (document.getElementById('songCategory')) document.getElementById('songCategory').innerText = "-";
-        if (document.getElementById('originalTone')) document.getElementById('originalTone').innerText = "-";
-        if (document.getElementById('currentTone')) document.getElementById('currentTone').innerText = "-";
-        if (document.getElementById('songLyricsContainer')) {
-            document.getElementById('songLyricsContainer').innerHTML = "<p class='text-slate-400 text-center py-4'>No hay elemento seleccionado.</p>";
-        }
-
-    } catch (error) {
-        alert("❌ Error al intentar limpiar la liturgia: " + error.message);
-        console.error("Error en vaciarOrdenDelDia:", error);
-    }
-}
-
-// Mantener alias para compatibilidad si alguna vista usa el nombre antiguo
-const limpiarTodaLaLiturgia = vaciarOrdenDelDia;
-
-// ==========================================
-// 11. TRANSPOSICIÓN PERMANENTE Y GUARDADO BD
-// ==========================================
-
-async function guardarTonoTransportado(cancion, nuevoTono) {
-    if (!cancion) return;
-    const confirmar = confirm(`¿Deseas guardar permanentemente el nuevo tono (${nuevoTono}) y actualizar los acordes de "${cancion.titulo}"?`);
-    if (!confirmar) return;
-
-    try {
-        let letraOriginal = cancion.letra_acordes || "";
-        let letraTranspuesta = "";
-
-        // 1. Formato con corchetes [C#m]
-        if (letraOriginal.includes('[') && letraOriginal.includes(']')) {
-            letraTranspuesta = letraOriginal.replace(/\[(.*?)\]/g, (match, chord) => {
-                const nuevoAcorde = typeof transposeChord === 'function' ? transposeChord(chord, currentOffset) : chord;
-                return `[${nuevoAcorde}]`;
-            });
-        } else {
-            // 2. Formato con acordes sobre texto
-            let lineas = letraOriginal.split('\n');
-            let lineasProcesadas = lineas.map(linea => {
-                if (linea.trim() === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(linea.trim())) {
-                    return linea;
-                }
-
-                let tokens = linea.split(/(\s+)/); 
-                return tokens.map(token => {
-                    if (token.trim() === "") return token; 
-                    
-                    let esAcorde = /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/i.test(token.trim());
-                    if (esAcorde && typeof transposeChord === 'function') {
-                        return transposeChord(token.trim(), currentOffset);
-                    }
-                    return token; 
-                }).join('');
-            });
-
-            letraTranspuesta = lineasProcesadas.join('\n');
-        }
-
-        // 3. Actualizar la tabla liturgia
-        const { error: errorLiturgia } = await _supabase
-            .from('liturgia')
-            .update({ 
-                tono_original: nuevoTono,
-                letra_acordes: letraTranspuesta
-            })
-            .eq('id', cancion.id);
-
-        if (errorLiturgia) throw errorLiturgia;
-
-        // 4. Si la canción está en el repertorio global, actualizarla también
-        if (cancion.cancion_id) {
-            const { error: errorRepertorio } = await _supabase
-                .from('canciones')
-                .update({ 
-                    tono_original: nuevoTono,
-                    letra_acordes: letraTranspuesta
-                })
-                .eq('id', cancion.cancion_id);
-
-            if (errorRepertorio) {
-                console.warn("No se pudo actualizar el tono en el repertorio global:", errorRepertorio.message);
-            }
-        }
-
-        alert(`✅ Tono y acordes guardados exitosamente en ${nuevoTono}.`);
-
-        // 5. Resetear offset y recargar
-        currentOffset = 0;
-        if (typeof obtenerRepertorioGlobal === 'function') await obtenerRepertorioGlobal();
-        await cargarLiturgiaDelDia();
-
-    } catch (error) {
-        alert("❌ Error al guardar el nuevo tono y acordes: " + error.message);
-        console.error("Error en guardarTonoTransportado:", error);
-    }
-}
-
-// ==========================================
-// 12. GESTIÓN DE PERFIL Y USUARIO MOSTRADO
-// ==========================================
-
-async function mostrarUsuarioActual() {
-    try {
-        const userDisplay = document.getElementById('userNameDisplay');
-        if (!userDisplay) return;
-
-        const { data: { user } } = await _supabase.auth.getUser();
-
-        if (user) {
-            if (user.user_metadata && user.user_metadata.nombre) {
-                userDisplay.innerText = user.user_metadata.nombre;
-                return;
-            }
-
-            const { data: perfil } = await _supabase
-                .from('perfiles')
-                .select('nombre')
-                .eq('id', user.id)
-                .single();
-
-            if (perfil && perfil.nombre) {
-                userDisplay.innerText = perfil.nombre;
-            } else if (user.email) {
-                const nombreLimpio = user.email.split('@')[0];
-                userDisplay.innerText = nombreLimpio.charAt(0).toUpperCase() + nombreLimpio.slice(1);
-            }
-        } else {
-            userDisplay.innerText = "Usuario Activo";
-        }
-    } catch (err) {
-        console.error("Error al obtener nombre de usuario:", err);
-        const userDisplay = document.getElementById('userNameDisplay');
-        if (userDisplay) userDisplay.innerText = "Usuario";
-    }
-}
-
-// ==========================================
-// 13. REORDENAMIENTO OPTIMIZADO Y RENDERIZADO
-// ==========================================
-
-async function moverPosicion(index, direccion) {
-    let lista = window.listaLiturgiaActiva || [];
-    const nuevoIndex = index + direccion;
-
-    if (nuevoIndex < 0 || nuevoIndex >= lista.length) return;
-
-    // Swapping local inmediato
-    const temp = lista[index];
-    lista[index] = lista[nuevoIndex];
-    lista[nuevoIndex] = temp;
-
-    window.listaLiturgiaActiva = lista;
-    renderizarListaLiturgia(lista);
-
-    // Persistencia asíncrona optimizada (Promesas en paralelo)
-    try {
-        const promesasActualizacion = lista.map((item, i) => 
-            _supabase
-                .from('liturgia')
-                .update({ posicion: i + 1 })
-                .eq('id', item.id)
-        );
-        
-        await Promise.all(promesasActualizacion);
-    } catch (err) {
-        console.error("Error al guardar la nueva posición en DB:", err);
     }
 }
 
@@ -1067,105 +743,318 @@ function renderizarListaLiturgia(lista) {
         contenedor.appendChild(itemDiv);
     });
 }
+
 // ==========================================
-// CONTROL DE TRANSPOSICIÓN (+ / -)
+// 10. TRANSPOSICIÓN Y GUARDADO
 // ==========================================
 
 function transpose(delta) {
-    // 1. Verificar si hay una canción seleccionada
     const cancion = window.listaLiturgiaActiva.find(c => c.id === activeSongId) || cancionesDB.find(c => c.id === activeSongId);
-    
-    if (!cancion) {
-        console.warn("No hay alabanza seleccionada para transportar.");
-        return;
-    }
+    if (!cancion) return;
 
-    // 2. Si es un punto general (sin tono original), no hace nada
     const esCancion = cancion.tipo === 'cancion' || (cancion.tono_original && cancion.tono_original !== '-');
     if (!esCancion) return;
 
-    // 3. Modificar el desplazamiento (offset) en semitonos
     currentOffset += delta;
-
-    // 4. Redibujar la canción en pantalla con los nuevos acordes y actualizar el botón guardar
     renderizarCancionActiva();
 }
-
-// ==========================================
-// GUARDAR TONO TRANSPORTADO EN LA BD
-// ==========================================
 
 async function guardarTransporteActual() {
     const cancion = window.listaLiturgiaActiva.find(c => c.id === activeSongId) || cancionesDB.find(c => c.id === activeSongId);
     
     if (!cancion || currentOffset === 0) return;
 
-    // Calcular la nueva nota basada en el offset actual
     const idxOriginal = scale.indexOf(cancion.tono_original);
     if (idxOriginal === -1) return;
 
     const idxNuevo = (idxOriginal + currentOffset + 12) % 12;
     const nuevoTono = scale[idxNuevo];
 
-    // Llamar a tu función existente de guardado
     await guardarTonoTransportado(cancion, nuevoTono);
 }
 
-function mostrarDetalleItem(item) {
-    itemSeleccionado = item;
+async function guardarTonoTransportado(cancion, nuevoTono) {
+    if (!cancion) return;
+    const confirmar = confirm(`¿Deseas guardar permanentemente el nuevo tono (${nuevoTono}) y actualizar los acordes de "${cancion.titulo}"?`);
+    if (!confirmar) return;
 
-    document.getElementById('songTitle').innerText = item.titulo;
-    document.getElementById('songCategory').innerText = item.momento || 'Liturgia';
+    try {
+        let letraOriginal = cancion.letra_acordes || "";
+        let letraTranspuesta = "";
 
-    const transposerWidget = document.getElementById('transposerWidget');
-    const btnGuardar = document.getElementById('btnGuardarTono');
-    btnGuardar.classList.add('hidden'); // Ocultar por defecto
+        if (letraOriginal.includes('[') && letraOriginal.includes(']')) {
+            letraTranspuesta = letraOriginal.replace(/\[(.*?)\]/g, (match, chord) => {
+                const nuevoAcorde = transposeChord(chord, currentOffset);
+                return `[${nuevoAcorde}]`;
+            });
+        } else {
+            let lineas = letraOriginal.split('\n');
+            let lineasProcesadas = lineas.map(linea => {
+                if (linea.trim() === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(linea.trim())) {
+                    return linea;
+                }
 
-    if (item.tipo === 'general') {
-        // Puntos generales no usan transposición
-        transposerWidget.classList.add('hidden');
-        document.getElementById('originalTone').innerText = '-';
-        document.getElementById('songLyricsContainer').innerText = item.comentarios || 'Sin contenido';
-    } else {
-        // Es una canción/alabanza
-        if (currentRole !== 'cantante') {
-            transposerWidget.classList.remove('hidden');
+                let tokens = linea.split(/(\s+)/); 
+                return tokens.map(token => {
+                    if (token.trim() === "") return token; 
+                    
+                    let esAcorde = /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/i.test(token.trim());
+                    if (esAcorde) {
+                        return transposeChord(token.trim(), currentOffset);
+                    }
+                    return token; 
+                }).join('');
+            });
+
+            letraTranspuesta = lineasProcesadas.join('\n');
         }
 
-        const tonoBase = item.tono_base || 'C';
-        document.getElementById('originalTone').innerText = tonoBase;
-        document.getElementById('currentTone').innerText = tonoBase;
+        const { error: errorLiturgia } = await _supabase
+            .from('liturgia')
+            .update({ 
+                tono_original: nuevoTono,
+                letra_acordes: letraTranspuesta
+            })
+            .eq('id', cancion.id);
 
-        // Sincronizar índices de la escala
-        originalToneIndex = SCALE.indexOf(tonoBase);
-        if (originalToneIndex === -1) originalToneIndex = 0;
-        currentToneIndex = originalToneIndex;
+        if (errorLiturgia) throw errorLiturgia;
 
-        // Renderizar acordes
-        document.getElementById('songLyricsContainer').innerHTML = transponerTexto(item.letra, tonoBase, tonoBase);
+        if (cancion.cancion_id) {
+            const { error: errorRepertorio } = await _supabase
+                .from('canciones')
+                .update({ 
+                    tono_original: nuevoTono,
+                    letra_acordes: letraTranspuesta
+                })
+                .eq('id', cancion.cancion_id);
+
+            if (errorRepertorio) {
+                console.warn("No se pudo actualizar el tono en el repertorio global:", errorRepertorio.message);
+            }
+        }
+
+        alert(`✅ Tono y acordes guardados exitosamente en ${nuevoTono}.`);
+
+        currentOffset = 0;
+        await obtenerRepertorioGlobal();
+        await cargarLiturgiaDelDia();
+
+    } catch (error) {
+        alert("❌ Error al guardar el nuevo tono y acordes: " + error.message);
+        console.error("Error en guardarTonoTransportado:", error);
     }
 }
 
-function transponerTexto(texto, tonoOrigen, tonoDestino) {
-    if (!texto) return '';
-    
-    const idxOrigen = SCALE.indexOf(tonoOrigen);
-    const idxDestino = SCALE.indexOf(tonoDestino);
-    
-    if (idxOrigen === -1 || idxDestino === -1) return texto;
+async function vaciarOrdenDelDia() {
+    const confirmar1 = confirm("⚠️ ¿Estás seguro de que deseas LIMPIAR TODO el orden del día?\nEsta acción eliminará todas las actividades y cantos programados para hoy.");
+    if (!confirmar1) return;
 
-    // Calcular la diferencia de semitonos
-    const semitonos = (idxDestino - idxOrigen + 12) % 12;
+    const confirmar2 = confirm("🚨 ¡Atención! Esta acción no se puede deshacer. ¿Proceder con el borrado completo?");
+    if (!confirmar2) return;
 
-    // Regex para buscar notas dentro de corchetes [C#m7], [G/B], etc.
-    return texto.replace(/\[([A-G][#b]?)([^\]]*)\]/g, (match, notaRaiz, complemento) => {
-        let idxNota = SCALE.indexOf(notaRaiz);
-        if (idxNota === -1) return match;
+    try {
+        const { error } = await _supabase
+            .from('liturgia')
+            .delete()
+            .neq('id', 0); 
 
-        let nuevaNotaIdx = (idxNota + semitonos) % 12;
-        let nuevaNota = SCALE[nuevaNotaIdx];
+        if (error) throw error;
 
-        // Retorna con formato Tailwind para destacar los acordes visualmente
-        return `<span class="text-amber-400 font-bold">[${nuevaNota}${complemento}]</span>`;
+        alert("🗑️ El orden del día ha sido vaciado por completo.");
+        
+        activeSongId = null;
+        await cargarLiturgiaDelDia();
+        
+        if (document.getElementById('songTitle')) document.getElementById('songTitle').innerText = "Selecciona una Alabanza";
+        if (document.getElementById('songCategory')) document.getElementById('songCategory').innerText = "-";
+        if (document.getElementById('originalTone')) document.getElementById('originalTone').innerText = "-";
+        if (document.getElementById('currentTone')) document.getElementById('currentTone').innerText = "-";
+        if (document.getElementById('songLyricsContainer')) {
+            document.getElementById('songLyricsContainer').innerHTML = "<p class='text-slate-400 text-center py-4'>No hay elemento seleccionado.</p>";
+        }
+
+    } catch (error) {
+        alert("❌ Error al intentar limpiar la liturgia: " + error.message);
+    }
+}
+
+// ==========================================
+// 11. BIBLIOTECA DE CANTOS Y MODALES
+// ==========================================
+
+async function abrirModalBiblioteca() {
+    const modal = document.getElementById('modalBiblioteca');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    volverAListaBiblioteca();
+
+    if (!repertorioGlobal || repertorioGlobal.length === 0) {
+        await obtenerRepertorioGlobal();
+    }
+
+    const inputBuscar = document.getElementById('inputBuscarBiblioteca');
+    if (inputBuscar) inputBuscar.value = '';
+
+    renderizarListaBiblioteca(repertorioGlobal);
+}
+
+function cerrarModalBiblioteca() {
+    const modal = document.getElementById('modalBiblioteca');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function renderizarListaBiblioteca(lista) {
+    const contenedor = document.getElementById('listaBibliotecaContainer');
+    const badgeTotal = document.getElementById('cantosTotalBadge');
+    if (!contenedor) return;
+
+    contenedor.innerHTML = '';
+
+    if (badgeTotal) badgeTotal.innerText = `${lista.length} alabanza(s) disponible(s)`;
+
+    if (!lista || lista.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">No se encontraron cantos en la base de datos.</p>`;
+        return;
+    }
+
+    lista.forEach(cancion => {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'py-3 flex items-center justify-between gap-3 hover:bg-slate-700/40 px-3 rounded-xl transition cursor-pointer group';
+        
+        itemDiv.onclick = () => verDetalleCancionBiblioteca(cancion.id);
+
+        const momento = cancion.momento || 'General';
+        const tono = cancion.tono_original || '-';
+
+        itemDiv.innerHTML = `
+            <div class="flex-1 overflow-hidden">
+                <p class="text-sm font-bold text-slate-100 group-hover:text-amber-400 transition truncate">${cancion.titulo}</p>
+                <span class="text-[11px] text-indigo-400 font-semibold uppercase">${momento}</span>
+            </div>
+
+            <div class="flex items-center gap-3 shrink-0">
+                <span class="text-xs font-bold px-2 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-md">
+                    ${tono}
+                </span>
+                <span class="text-slate-500 group-hover:text-slate-300 transition">
+                    👉
+                </span>
+            </div>
+        `;
+
+        contenedor.appendChild(itemDiv);
     });
 }
+
+function verDetalleCancionBiblioteca(idCancion) {
+    const cancion = repertorioGlobal.find(c => c.id === idCancion);
+    if (!cancion) return;
+
+    document.getElementById('vistaListaBiblioteca').classList.add('hidden');
+    document.getElementById('vistaDetalleBiblioteca').classList.remove('hidden');
+    document.getElementById('btnVolverBiblioteca').classList.remove('hidden');
+
+    document.getElementById('tituloModalBiblioteca').innerText = "Detalle del Canto";
+    document.getElementById('bibDetalleTitulo').innerText = cancion.titulo;
+    document.getElementById('bibDetalleMomento').innerText = cancion.momento || 'General';
+    document.getElementById('bibDetalleTono').innerText = cancion.tono_original || '-';
+
+    const contenedorTexto = document.getElementById('bibDetalleContenido');
+    let textoMostrar = cancion.letra_acordes || cancion.letra || '';
+
+    // Detección correcta del Rol desde la variable global o currentRole
+    const esCantante = (currentRole === 'cantante') || (window.usuarioActual && window.usuarioActual.rol === 'cantante');
+
+    if (esCantante) {
+        document.getElementById('bibDetalleTonoContainer').classList.add('hidden');
+        textoMostrar = limpiarAcordesParaCantantes(textoMostrar);
+    } else {
+        document.getElementById('bibDetalleTonoContainer').classList.remove('hidden');
+    }
+
+    contenedorTexto.textContent = textoMostrar;
+}
+
+function volverAListaBiblioteca() {
+    document.getElementById('vistaListaBiblioteca').classList.remove('hidden');
+    document.getElementById('vistaDetalleBiblioteca').classList.add('hidden');
+    document.getElementById('btnVolverBiblioteca').classList.add('hidden');
+    document.getElementById('tituloModalBiblioteca').innerText = "📖 Biblioteca de Alabanzas";
+}
+
+function limpiarAcordesParaCantantes(textoConAcordes) {
+    if (!textoConAcordes) return '';
+    
+    // Remueve corchetes de acordes [Do] [G#m]
+    let sinCorchetes = textoConAcordes.replace(/\[.*?\]/g, '');
+
+    // Filtra líneas compuestas completamente por notas aisladas
+    return sinCorchetes
+        .split('\n')
+        .filter(linea => {
+            let lineaLimpia = linea.trim();
+            if (lineaLimpia === "") return true;
+
+            if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(lineaLimpia)) {
+                return true;
+            }
+
+            let palabras = lineaLimpia.split(/\s+/);
+            let esLineaDeAcordes = palabras.every(palabra => 
+                /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/i.test(palabra)
+            );
+
+            return !esLineaDeAcordes;
+        })
+        .join('\n');
+}
+
+function filtrarBibliotecaCantos() {
+    const query = document.getElementById('inputBuscarBiblioteca').value.toLowerCase().trim();
+
+    if (!query) {
+        renderizarListaBiblioteca(repertorioGlobal);
+        return;
+    }
+
+    const filtrados = repertorioGlobal.filter(cancion => {
+        const tituloMatch = (cancion.titulo || '').toLowerCase().includes(query);
+        const momentoMatch = (cancion.momento || '').toLowerCase().includes(query);
+        const tonoMatch = (cancion.tono_original || '').toLowerCase().includes(query);
+        return tituloMatch || momentoMatch || tonoMatch;
+    });
+
+    renderizarListaBiblioteca(filtrados);
+}
+
+// ==========================================
+// 12. INICIALIZACIÓN
+// ==========================================
+
+window.addEventListener('DOMContentLoaded', async () => {
+    const transposer = document.getElementById('transposerWidget');
+    const director = document.getElementById('directorControls');
+    const loginScreen = document.getElementById('loginScreen');
+    const btnBib = document.getElementById('btnBiblioteca');
+
+    if (transposer) transposer.classList.add('hidden');
+    if (director) director.classList.add('hidden');
+    if (btnBib) btnBib.classList.add('hidden'); // Ocultar por defecto al arrancar
+
+    console.log("🔍 Verificando sesión activa de Supabase...");
+    const { data: { session } } = await _supabase.auth.getSession();
+
+    if (session && session.user) {
+        console.log("♻️ Sesión recuperada automáticamente:", session.user.email);
+        await obtenerRolUsuario(session.user.id, session.user.email, null);
+    } else {
+        if (loginScreen) loginScreen.classList.remove('hidden');
+        console.log("🚀 Portal listo y esperando autenticación manual...");
+    }
+});

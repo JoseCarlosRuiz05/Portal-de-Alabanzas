@@ -44,6 +44,14 @@
             </div>
             
             <div class="flex items-center gap-3 flex-wrap justify-center">
+                <!-- BOTÓN BIBLIOTECA DE CANTOS (Disponible para todos) -->
+                <button type="button" id="btnBiblioteca" onclick="abrirModalBiblioteca()" class="hidden bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold uppercase tracking-wider py-2 px-3 rounded-lg transition shadow-md flex items-center gap-1.5">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+    </svg>
+                    Biblioteca
+                </button>
+
                 <!-- Nombre del usuario cargado -->
                 <div id="userInfo" class="hidden sm:flex items-center gap-2 text-indigo-100 text-xs font-medium bg-indigo-800/80 py-2 px-3 rounded-lg border border-indigo-700/60 shadow-inner">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -231,6 +239,67 @@
                     <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-sm">Guardar Cambios</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL: BIBLIOTECA DE CANTOS (INTEGRANTES)  -->
+    <!-- ========================================== -->
+    <div id="modalBiblioteca" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+            
+            <!-- Encabezado -->
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50">
+                <div class="flex items-center gap-2">
+                    <button id="btnVolverBiblioteca" onclick="volverAListaBiblioteca()" class="hidden text-amber-400 hover:text-amber-300 text-sm font-bold flex items-center gap-1">
+                        ← Volver
+                    </button>
+                    <h3 id="tituloModalBiblioteca" class="text-lg font-bold text-white flex items-center gap-2">
+                        📖 Biblioteca de Alabanzas
+                    </h3>
+                </div>
+                <button onclick="cerrarModalBiblioteca()" class="text-slate-400 hover:text-white p-1 font-bold">
+                    ✕
+                </button>
+            </div>
+
+            <!-- VISTA 1: Buscador y Lista de Alabanzas -->
+            <div id="vistaListaBiblioteca" class="flex-1 flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-slate-700 bg-slate-900/40">
+                    <input type="text" id="inputBuscarBiblioteca" oninput="filtrarBibliotecaCantos()" 
+                           placeholder="🔍 Buscar por título, momento o tono..." 
+                           class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div id="listaBibliotecaContainer" class="p-4 overflow-y-auto flex-1 divide-y divide-slate-700/50">
+                    <!-- Se llena dinámicamente con JS -->
+                </div>
+            </div>
+
+            <!-- VISTA 2: Visor de Letra / Acordes de la Alabanza -->
+            <div id="vistaDetalleBiblioteca" class="hidden flex-1 overflow-y-auto p-5 bg-slate-900/60">
+                <div class="mb-4 pb-3 border-b border-slate-700 flex justify-between items-start">
+                    <div>
+                        <h2 id="bibDetalleTitulo" class="text-xl font-bold text-amber-400"></h2>
+                        <span id="bibDetalleMomento" class="text-xs font-semibold uppercase text-indigo-400"></span>
+                    </div>
+                    <div id="bibDetalleTonoContainer" class="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-300 font-bold text-sm">
+                        Tono: <span id="bibDetalleTono">-</span>
+                    </div>
+                </div>
+
+                <!-- Contenedor con tipografía monospaciada para conservar formato -->
+                <pre id="bibDetalleContenido" class="font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-200 select-none"></pre>
+            </div>
+
+            <!-- Pie de Modal -->
+            <div class="p-3 border-t border-slate-700 bg-slate-900/50 flex justify-between items-center text-xs text-slate-400">
+                <span id="cantosTotalBadge">0 alabanzas registradas</span>
+                <button onclick="cerrarModalBiblioteca()" class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition font-semibold">
+                    Cerrar
+                </button>
+            </div>
+
         </div>
     </div>
         
