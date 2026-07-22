@@ -53,6 +53,10 @@ async function procesarLogin(event) {
     const userInfoBadge = document.getElementById('userInfo');
     if (userInfoBadge) userInfoBadge.classList.remove('hidden');
 
+    // MOSTRAR EL BOTÓN DE CERRAR SESIÓN
+    const btnSalir = document.getElementById('btnCerrarSesion');
+    if (btnSalir) btnSalir.classList.remove('hidden');
+
     await obtenerRolUsuario(data.user.id, data.user.email, btnSubmit);
 }
 
@@ -90,6 +94,17 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     const lblUser = document.getElementById('userNameDisplay');
     if (lblUser) lblUser.innerText = perfil.nombre || userEmail;
 
+    // MOSTRAR LA INSIGNIA Y BOTONES DE SESIÓN ACTIVA
+    const userInfoBadge = document.getElementById('userInfo');
+    if (userInfoBadge) userInfoBadge.classList.remove('hidden');
+
+    const btnBib = document.getElementById('btnBiblioteca');
+    if (btnBib) btnBib.classList.remove('hidden');
+
+    // ➕ MOSTRAR EL BOTÓN DE SALIR
+    const btnSalir = document.getElementById('btnCerrarSesion');
+    if (btnSalir) btnSalir.classList.remove('hidden');
+
     changeRole(perfil.rol);
     
     const selector = document.getElementById('roleSelector');
@@ -100,10 +115,6 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
 
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) loginScreen.classList.add('hidden');
-
-    // MOSTRAR EL BOTÓN DE BIBLIOTECA AL INICIAR SESIÓN
-    const btnBib = document.getElementById('btnBiblioteca');
-    if (btnBib) btnBib.classList.remove('hidden');
     
     await obtenerRepertorioGlobal();
     await cargarLiturgiaDelDia();
@@ -1042,10 +1053,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     const director = document.getElementById('directorControls');
     const loginScreen = document.getElementById('loginScreen');
     const btnBib = document.getElementById('btnBiblioteca');
+    const btnSalir = document.getElementById('btnCerrarSesion'); // Agregar referencia
 
     if (transposer) transposer.classList.add('hidden');
     if (director) director.classList.add('hidden');
     if (btnBib) btnBib.classList.add('hidden'); // Ocultar por defecto al arrancar
+    if (btnSalir) btnSalir.classList.add('hidden'); // Ocultar por defecto al arrancar
 
     console.log("🔍 Verificando sesión activa de Supabase...");
     const { data: { session } } = await _supabase.auth.getSession();
