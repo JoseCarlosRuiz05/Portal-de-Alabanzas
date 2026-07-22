@@ -18,10 +18,9 @@ let currentOffset = 0;
 let idOrdenEditando = null; 
 let repertorioGlobal = []; 
 window.listaLiturgiaActiva = [];
-window.usuarioActual = null; // Variable agregada para prevenir ReferenceError
+window.usuarioActual = null;
 
 // EXPRESIÓN REGULAR COMPLETA PARA DETECTAR Y VALIDAR ACORDES
-// Reconoce: Raíz (A-G), alteraciones (#/b), sufijos (m, maj, dim, sus2, sus4, add9, etc.) y bajos (/G#)
 const REGEX_ACORDE_STRING = "^[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\\/[A-G][#b]?)?$";
 const REGEX_ACORDE_MATCH = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\/[A-G][#b]?)?\b/gi;
 
@@ -58,7 +57,6 @@ async function procesarLogin(event) {
     const userInfoBadge = document.getElementById('userInfo');
     if (userInfoBadge) userInfoBadge.classList.remove('hidden');
 
-    // MOSTRAR EL BOTÓN DE CERRAR SESIÓN
     const btnSalir = document.getElementById('btnCerrarSesion');
     if (btnSalir) btnSalir.classList.remove('hidden');
 
@@ -92,21 +90,17 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
 
     console.log(`✨ Bienvenido ${perfil.nombre}. Rol detectado: ${perfil.rol}`);
     
-    // Almacenar el usuario en la variable global
     window.usuarioActual = { id: userId, email: userEmail, rol: perfil.rol, nombre: perfil.nombre };
 
-    // Mostrar nombre en badge si existe el elemento
     const lblUser = document.getElementById('userNameDisplay');
     if (lblUser) lblUser.innerText = perfil.nombre || userEmail;
 
-    // MOSTRAR LA INSIGNIA Y BOTONES DE SESIÓN ACTIVA
     const userInfoBadge = document.getElementById('userInfo');
     if (userInfoBadge) userInfoBadge.classList.remove('hidden');
 
     const btnBib = document.getElementById('btnBiblioteca');
     if (btnBib) btnBib.classList.remove('hidden');
 
-    // ➕ MOSTRAR EL BOTÓN DE SALIR
     const btnSalir = document.getElementById('btnCerrarSesion');
     if (btnSalir) btnSalir.classList.remove('hidden');
 
@@ -123,7 +117,7 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     
     await obtenerRepertorioGlobal();
     await cargarLiturgiaDelDia();
-    suscribirACambiosLiturgia(); // Suscripción a cambios en vivo
+    suscribirACambiosLiturgia();
 }
 
 async function cerrarSesion() {
@@ -167,7 +161,6 @@ async function cerrarSesion() {
     const directorControls = document.getElementById('directorControls');
     if (directorControls) directorControls.classList.add('hidden');
 
-    // OCULTAR BOTÓN DE BIBLIOTECA AL CERRAR SESIÓN
     const btnBib = document.getElementById('btnBiblioteca');
     if (btnBib) btnBib.classList.add('hidden');
 
@@ -280,20 +273,17 @@ function seleccionarElemento(id) {
 function transposeChord(chord, steps) {
     if (!chord) return chord;
 
-    // Manejar acordes compuestos con bajo (ej: E/G# o Dsus2/F#)
     if (chord.includes('/')) {
         const partes = chord.split('/');
         return transposeChord(partes[0], steps) + '/' + transposeChord(partes[1], steps);
     }
 
-    // Separa la nota raíz de su sufijo (ej: "D" y "sus2", "F#" y "m")
     const match = chord.match(/^([A-G][#b]?)(.*)$/);
     if (!match) return chord;
 
     let root = match[1];
     let suffix = match[2];
 
-    // Normalizar equivalencias bemoles si existen
     if (root.endsWith('b')) {
         const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
         root = mapaBemoles[root] || root;
@@ -360,7 +350,7 @@ function renderizarCancionActiva() {
                 let lineaLimpia = linea.trim();
                 if (lineaLimpia === "") return true;
 
-                if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(lineaLimpia)) {
+                if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
                     return true;
                 }
 
@@ -383,23 +373,29 @@ function renderizarCancionActiva() {
             } else {
                 let lineas = textoFinal.split('\n');
                 let resultadoLineas = lineas.map(linea => {
-                    if (linea.trim() === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(linea.trim())) {
+                    let lineaLimpia = linea.trim();
+                    if (lineaLimpia === "") return linea;
+
+                    if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
                         return `<span class="text-indigo-300 font-bold">${linea}</span>`;
                     }
 
-                    let tokens = linea.split(/(\s+)/); 
+                    // VALIDACIÓN POR LÍNEA COMPLETA: Solo transponer si TODAS las palabras son acordes
+                    let palabras = lineaLimpia.split(/\s+/);
                     const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
-                    
-                    return tokens.map(token => {
-                        if (token.trim() === "") return token; 
-                        let esAcorde = regValidator.test(token.trim());
-                        
-                        if (esAcorde) {
+                    let esLineaDeAcordes = palabras.every(palabra => regValidator.test(palabra));
+
+                    if (esLineaDeAcordes) {
+                        let tokens = linea.split(/(\s+)/); 
+                        return tokens.map(token => {
+                            if (token.trim() === "") return token; 
                             let transpuerto = transposeChord(token.trim(), currentOffset);
                             return `<span class="text-amber-400 font-bold font-mono">${transpuerto}</span>`;
-                        }
-                        return token; 
-                    }).join('');
+                        }).join('');
+                    }
+
+                    // Si es una línea de letra normal, la devuelve intacta sin alterar palabras como "a"
+                    return linea;
                 });
 
                 document.getElementById('songLyricsContainer').innerHTML = `<pre class="font-mono whitespace-pre-wrap text-slate-100">${resultadoLineas.join('\n')}</pre>`;
@@ -817,22 +813,24 @@ async function guardarTonoTransportado(cancion, nuevoTono) {
         } else {
             let lineas = letraOriginal.split('\n');
             let lineasProcesadas = lineas.map(linea => {
-                if (linea.trim() === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(linea.trim())) {
+                let lineaLimpia = linea.trim();
+                if (lineaLimpia === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
                     return linea;
                 }
 
-                let tokens = linea.split(/(\s+)/); 
+                let palabras = lineaLimpia.split(/\s+/);
                 const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+                let esLineaDeAcordes = palabras.every(palabra => regValidator.test(palabra));
 
-                return tokens.map(token => {
-                    if (token.trim() === "") return token; 
-                    
-                    let esAcorde = regValidator.test(token.trim());
-                    if (esAcorde) {
+                if (esLineaDeAcordes) {
+                    let tokens = linea.split(/(\s+)/); 
+                    return tokens.map(token => {
+                        if (token.trim() === "") return token; 
                         return transposeChord(token.trim(), currentOffset);
-                    }
-                    return token; 
-                }).join('');
+                    }).join('');
+                }
+
+                return linea;
             });
 
             letraTranspuesta = lineasProcesadas.join('\n');
@@ -997,7 +995,6 @@ function verDetalleCancionBiblioteca(idCancion) {
     const contenedorTexto = document.getElementById('bibDetalleContenido');
     let textoMostrar = cancion.letra_acordes || cancion.letra || '';
 
-    // Detección correcta del Rol desde la variable global o currentRole
     const esCantante = (currentRole === 'cantante') || (window.usuarioActual && window.usuarioActual.rol === 'cantante');
 
     if (esCantante) {
@@ -1020,17 +1017,15 @@ function volverAListaBiblioteca() {
 function limpiarAcordesParaCantantes(textoConAcordes) {
     if (!textoConAcordes) return '';
     
-    // Remueve corchetes de acordes [Do] [G#m]
     let sinCorchetes = textoConAcordes.replace(/\[.*?\]/g, '');
 
-    // Filtra líneas compuestas completamente por notas aisladas
     return sinCorchetes
         .split('\n')
         .filter(linea => {
             let lineaLimpia = linea.trim();
             if (lineaLimpia === "") return true;
 
-            if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA)/i.test(lineaLimpia)) {
+            if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
                 return true;
             }
 
@@ -1070,12 +1065,12 @@ window.addEventListener('DOMContentLoaded', async () => {
     const director = document.getElementById('directorControls');
     const loginScreen = document.getElementById('loginScreen');
     const btnBib = document.getElementById('btnBiblioteca');
-    const btnSalir = document.getElementById('btnCerrarSesion'); // Agregar referencia
+    const btnSalir = document.getElementById('btnCerrarSesion');
 
     if (transposer) transposer.classList.add('hidden');
     if (director) director.classList.add('hidden');
-    if (btnBib) btnBib.classList.add('hidden'); // Ocultar por defecto al arrancar
-    if (btnSalir) btnSalir.classList.add('hidden'); // Ocultar por defecto al arrancar
+    if (btnBib) btnBib.classList.add('hidden');
+    if (btnSalir) btnSalir.classList.add('hidden');
 
     console.log("🔍 Verificando sesión activa de Supabase...");
     const { data: { session } } = await _supabase.auth.getSession();
