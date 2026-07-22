@@ -535,13 +535,13 @@ async function guardarNuevaAlabanza(event) {
                 const existeEnRepertorio = repertorioGlobal.find(c => c.titulo.toLowerCase().trim() === titulo.toLowerCase().trim());
                 
                 if (!existeEnRepertorio) {
+                    // SE REMUEVE 'momento' DE ESTE INSERT PARA EVITAR EL ERROR DE COLUMNA
                     const { data: nuevaCancion, error: errorRepertorio } = await _supabase
                         .from('canciones')
                         .insert([{
                             titulo: titulo,
                             tono_original: tono,
-                            letra_acordes: letraAcordes,
-                            momento: momento
+                            letra_acordes: letraAcordes
                         }])
                         .select();
 
