@@ -20,6 +20,11 @@ let repertorioGlobal = [];
 window.listaLiturgiaActiva = [];
 window.usuarioActual = null; // Variable agregada para prevenir ReferenceError
 
+// EXPRESIÓN REGULAR COMPLETA PARA DETECTAR Y VALIDAR ACORDES
+// Reconoce: Raíz (A-G), alteraciones (#/b), sufijos (m, maj, dim, sus2, sus4, add9, etc.) y bajos (/G#)
+const REGEX_ACORDE_STRING = "^[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\\/[A-G][#b]?)?$";
+const REGEX_ACORDE_MATCH = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\/[A-G][#b]?)?\b/gi;
+
 // ==========================================
 // 3. AUTENTICACIÓN Y CONTROL DE ACCESO
 // ==========================================
@@ -273,14 +278,25 @@ function seleccionarElemento(id) {
 // ==========================================
 
 function transposeChord(chord, steps) {
-    const match = chord.match(/^([A-G]#?|b?)(.*)$/);
+    if (!chord) return chord;
+
+    // Manejar acordes compuestos con bajo (ej: E/G# o Dsus2/F#)
+    if (chord.includes('/')) {
+        const partes = chord.split('/');
+        return transposeChord(partes[0], steps) + '/' + transposeChord(partes[1], steps);
+    }
+
+    // Separa la nota raíz de su sufijo (ej: "D" y "sus2", "F#" y "m")
+    const match = chord.match(/^([A-G][#b]?)(.*)$/);
     if (!match) return chord;
+
     let root = match[1];
     let suffix = match[2];
 
+    // Normalizar equivalencias bemoles si existen
     if (root.endsWith('b')) {
-        const idx = scale.indexOf(root.charAt(0));
-        root = scale[(idx - 1 + 12) % 12];
+        const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+        root = mapaBemoles[root] || root;
     }
 
     const currentIndex = scale.indexOf(root);
@@ -349,9 +365,8 @@ function renderizarCancionActiva() {
                 }
 
                 let palabras = lineaLimpia.split(/\s+/);
-                let esLineaDeAcordes = palabras.every(palabra => 
-                    /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/i.test(palabra)
-                );
+                const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+                let esLineaDeAcordes = palabras.every(palabra => regValidator.test(palabra));
 
                 return !esLineaDeAcordes;
             });
@@ -373,9 +388,11 @@ function renderizarCancionActiva() {
                     }
 
                     let tokens = linea.split(/(\s+)/); 
+                    const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+                    
                     return tokens.map(token => {
                         if (token.trim() === "") return token; 
-                        let esAcorde = /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/.test(token.trim());
+                        let esAcorde = regValidator.test(token.trim());
                         
                         if (esAcorde) {
                             let transpuerto = transposeChord(token.trim(), currentOffset);
@@ -546,7 +563,6 @@ async function guardarNuevaAlabanza(event) {
                 const existeEnRepertorio = repertorioGlobal.find(c => c.titulo.toLowerCase().trim() === titulo.toLowerCase().trim());
                 
                 if (!existeEnRepertorio) {
-                    // SE REMUEVE 'momento' DE ESTE INSERT PARA EVITAR EL ERROR DE COLUMNA
                     const { data: nuevaCancion, error: errorRepertorio } = await _supabase
                         .from('canciones')
                         .insert([{
@@ -806,10 +822,12 @@ async function guardarTonoTransportado(cancion, nuevoTono) {
                 }
 
                 let tokens = linea.split(/(\s+)/); 
+                const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+
                 return tokens.map(token => {
                     if (token.trim() === "") return token; 
                     
-                    let esAcorde = /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/i.test(token.trim());
+                    let esAcorde = regValidator.test(token.trim());
                     if (esAcorde) {
                         return transposeChord(token.trim(), currentOffset);
                     }
@@ -1017,9 +1035,8 @@ function limpiarAcordesParaCantantes(textoConAcordes) {
             }
 
             let palabras = lineaLimpia.split(/\s+/);
-            let esLineaDeAcordes = palabras.every(palabra => 
-                /^[A-G]([#b])?(m|min|maj|dim|aug)?\d*(\/[A-G]([#b])?)?$/i.test(palabra)
-            );
+            const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+            let esLineaDeAcordes = palabras.every(palabra => regValidator.test(palabra));
 
             return !esLineaDeAcordes;
         })

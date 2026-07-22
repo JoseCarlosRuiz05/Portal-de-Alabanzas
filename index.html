@@ -36,9 +36,6 @@
     <!-- ========================================== -->
     <!-- CABECERA / NAVBAR                          -->
     <!-- ========================================== -->
-    <!-- ========================================== -->
-    <!-- CABECERA / NAVBAR                          -->
-    <!-- ========================================== -->
     <header class="bg-indigo-900 text-white shadow-md py-4 px-6 sticky top-0 z-50">
         <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
@@ -73,7 +70,7 @@
                     </select>
                 </div>
 
-                <!-- BOTÓN DE CERRAR SESIÓN (Se agregó 'hidden' e 'id="btnCerrarSesion"') -->
+                <!-- BOTÓN DE CERRAR SESIÓN -->
                 <button id="btnCerrarSesion" onclick="cerrarSesion()" class="hidden bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition shadow-md flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -123,27 +120,31 @@
         <!-- COLUMNA DERECHA: Visor de Alabanza Activa -->
         <section class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div>
-                <!-- Encabezado de la Canción -->
-                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-6 mb-6">
-                    <div>
-                        <span class="text-xs font-bold uppercase tracking-wider text-indigo-600" id="songCategory">-</span>
-                        <h2 class="text-3xl font-extrabold text-slate-900 mt-1" id="songTitle">Selecciona una Alabanza</h2>
-                        <p class="text-sm text-slate-500">Tono base original: <span id="originalTone" class="font-bold">-</span></p>
+                <!-- Encabezado de la Canción con botón Guardar Tono ubicado abajo del widget -->
+                <div class="border-b border-slate-100 pb-6 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600" id="songCategory">-</span>
+                            <h2 class="text-3xl font-extrabold text-slate-900 mt-1" id="songTitle">Selecciona una Alabanza</h2>
+                            <p class="text-sm text-slate-500">Tono base original: <span id="originalTone" class="font-bold">-</span></p>
+                        </div>
+
+                        <!-- Controles de Transposición (Mantienen su formato horizontal exacto) -->
+                        <div id="transposerWidget" class="hidden flex items-center gap-2 bg-slate-100 p-2 rounded-xl self-start md:self-auto">
+                            <span class="text-xs font-bold text-slate-600 px-2">Transportar:</span>
+                            <button type="button" onclick="transpose(-1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">-</button>
+                            <span id="currentTone" class="w-12 text-center font-mono font-extrabold text-indigo-600 text-lg bg-white py-0.5 rounded shadow-inner">-</span>
+                            <button type="button" onclick="transpose(1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">+</button>
+                        </div>
                     </div>
 
-                    <!-- Controles de Transposición (Ocultos para cantantes) -->
-                    <div id="transposerWidget" class="flex items-center gap-2 bg-slate-100 p-2 rounded-xl hidden">
-                        <span class="text-xs font-bold text-slate-600 px-2">Transportar:</span>
-                        <button type="button" onclick="transpose(-1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">-</button>
-                        <span id="currentTone" class="w-12 text-center font-mono font-extrabold text-indigo-600 text-lg bg-white py-0.5 rounded shadow-inner">-</span>
-                        <button type="button" onclick="transpose(1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">+</button>
-                        
-                        <!-- BOTÓN GUARDAR TONO: Se muestra cuando es Director, es alabanza y cambió la nota -->
+                    <!-- BOTÓN GUARDAR TONO: Posicionado justo debajo del recuadro gris -->
+                    <div class="flex justify-end mt-2">
                         <button 
                             id="btnGuardarTono" 
                             type="button" 
                             onclick="guardarTransporteActual()" 
-                            class="hidden px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                            class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
