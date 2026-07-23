@@ -66,15 +66,32 @@ async function procesarLogin(event) {
 }
 
 async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
-    let { data: perfil, error } = await _supabase
-        .from('perfiles')
-        .select('rol, nombre')
-        .eq('id', userId)
-        .maybeSingle(); 
+    let perfil = null;
 
-    if (error) {
-        alert("❌ Error al consultar la tabla perfiles: " + error.message);
-        if(btnSubmit && btnSubmit.disabled) {
+    try {
+        // 1. Consultar el perfil buscando por correo
+        let { data, error } = await _supabase
+            .from('perfiles')
+            .select('id, rol, nombre, total_ingresos')
+            .eq('email', userEmail) // 👈 Cambiado a email para evitar fallos de ID
+            .maybeSingle(); 
+
+        // Fallback: Si no encuentra por email, buscar por id
+        if (!data) {
+            let resId = await _supabase
+                .from('perfiles')
+                .select('id, rol, nombre, total_ingresos')
+                .eq('id', userId)
+                .maybeSingle();
+            data = resId.data;
+        }
+
+        if (error) throw error;
+        perfil = data;
+    } catch (errConsult) {
+        console.error("❌ Error al consultar la tabla perfiles:", errConsult);
+        alert("❌ Error al consultar el perfil: " + errConsult.message);
+        if (btnSubmit && btnSubmit.disabled) {
             btnSubmit.innerText = "Ingresar al Portal";
             btnSubmit.disabled = false;
         }
@@ -83,29 +100,60 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
 
     if (!perfil) {
         alert(`⚠️ Tu usuario (${userEmail}) no está registrado en la tabla 'perfiles'.`);
-        if(btnSubmit && btnSubmit.disabled) {
+        if (btnSubmit && btnSubmit.disabled) {
             btnSubmit.innerText = "Ingresar al Portal";
             btnSubmit.disabled = false;
         }
         return;
     }
 
-    console.log(`✨ Bienvenido ${perfil.nombre}. Rol detectado: ${perfil.rol}`);
-    
-    // 1. Guardar objeto global del usuario
-    window.usuarioActual = { id: userId, email: userEmail, rol: perfil.rol, nombre: perfil.nombre };
+    // 2. INCREMENTAR CONTADOR BUSCANDO POR EMAIL
+    let accesosActualizados = (perfil.total_ingresos || 0) + 1;
 
-    // 2. CONECTAR A PRESENCIA INMEDIATAMENTE
-    // Se ejecuta aquí para anunciar la presencia al servidor sin esperar la carga de datos
+    try {
+        const { data: updateData, error: errUpd } = await _supabase
+            .from('perfiles')
+            .update({ total_ingresos: accesosActualizados })
+            .eq('email', userEmail) // 👈 UPDATE directo por email
+            .select();
+
+        if (errUpd) {
+            console.error("❌ Error Supabase al actualizar:", errUpd.message);
+            accesosActualizados = perfil.total_ingresos || 1;
+        } else if (!updateData || updateData.length === 0) {
+            console.warn(`⚠️ No se encontró la fila para '${userEmail}'.`);
+            accesosActualizados = perfil.total_ingresos || 1;
+        } else {
+            console.log(`✅ ¡ÉXITO! Conteo actualizado para ${perfil.nombre}: ${accesosActualizados} accesos.`);
+        }
+    } catch (errUpd) {
+        console.error("❌ Error inesperado en UPDATE:", errUpd);
+        accesosActualizados = perfil.total_ingresos || 1;
+    }
+
+    // 3. Guardar objeto global del usuario
+    window.usuarioActual = { 
+        id: userId, 
+        email: userEmail, 
+        rol: perfil.rol, 
+        nombre: perfil.nombre,
+        totalIngresos: accesosActualizados 
+    };
+
+    // 4. Conectar Presencia en Tiempo Real
     try {
         if (typeof inicializarPresenciaEnLinea === 'function') {
             inicializarPresenciaEnLinea();
         }
     } catch (e) {
-        console.warn("Error al inicializar la presencia en línea:", e);
+        console.warn("Error al inicializar la presencia:", e);
     }
 
-    // 3. Actualizar la interfaz de usuario (UI)
+    // 5. Ocultar pantalla de Login
+    const loginScreen = document.getElementById('loginScreen');
+    if (loginScreen) loginScreen.classList.add('hidden');
+
+    // 6. Actualizar elementos UI
     const lblUser = document.getElementById('userNameDisplay');
     if (lblUser) lblUser.innerText = perfil.nombre || userEmail;
 
@@ -118,25 +166,27 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     const btnSalir = document.getElementById('btnCerrarSesion');
     if (btnSalir) btnSalir.classList.remove('hidden');
 
-    changeRole(perfil.rol);
-    
     const selector = document.getElementById('roleSelector');
     if (selector) {
         selector.value = perfil.rol;
         selector.disabled = true; 
     }
 
-    const loginScreen = document.getElementById('loginScreen');
-    if (loginScreen) loginScreen.classList.add('hidden');
-    
-    // 4. Cargar datos de la base de datos en paralelo
-    await Promise.all([
-        obtenerRepertorioGlobal(),
-        cargarLiturgiaDelDia()
-    ]);
+    // 7. Activar vista de Director / Músico
+    if (typeof changeRole === 'function') {
+        changeRole(perfil.rol);
+    }
 
-    // 5. Suscribirse a las actualizaciones de la liturgia
-    suscribirACambiosLiturgia();
+    // 8. Cargar datos principales
+    try {
+        await Promise.all([
+            obtenerRepertorioGlobal(),
+            cargarLiturgiaDelDia()
+        ]);
+        suscribirACambiosLiturgia();
+    } catch (e) {
+        console.warn("Error cargando datos iniciales:", e);
+    }
 }
 
 async function cerrarSesion() {
@@ -1122,17 +1172,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function inicializarPresenciaEnLinea() {
     if (!window.usuarioActual) return;
 
-    // 1. Si ya existe un canal activo previo, lo limpiamos para evitar duplicados
+    // 1. Limpiar canal previo si existía para evitar duplicados
     if (presenceChannel) {
         try {
             await presenceChannel.unsubscribe();
         } catch (e) {
-            console.warn("Limpia de canal anterior:", e);
+            console.warn("Limpieza de canal anterior:", e);
         }
         presenceChannel = null;
     }
 
-    // 2. Generar Key única por pestaña/sesión (permite probar varias pestañas)
+    // 2. Generar Key única por pestaña/sesión
     const sessionKey = `${window.usuarioActual.id}_${Math.random().toString(36).substring(2, 7)}`;
 
     // 3. Crear el canal
@@ -1143,6 +1193,76 @@ async function inicializarPresenciaEnLinea() {
             }
         }
     });
+
+    // 4. Sincronización en tiempo real
+    presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            usuariosConectados = [];
+
+            // Extraer todos los usuarios conectados
+            for (const key in state) {
+                if (Array.isArray(state[key])) {
+                    state[key].forEach(u => usuariosConectados.push(u));
+                }
+            }
+
+            console.log("🟢 Usuarios en línea actualizados:", usuariosConectados);
+
+            // Si el usuario actual es director, renderizar la lista
+            if (window.usuarioActual.rol === 'director') {
+                renderizarUsuariosEnLinea();
+            }
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // Enviar la presencia con el total de ingresos guardado
+                await presenceChannel.track({
+                    id: window.usuarioActual.id,
+                    nombre: window.usuarioActual.nombre || 'Usuario',
+                    email: window.usuarioActual.email,
+                    rol: window.usuarioActual.rol,
+                    totalIngresos: window.usuarioActual.totalIngresos || 1, // 👈 Se transmite el conteo
+                    onlineAt: new Date().toISOString()
+                });
+            }
+        });
+}
+
+    // 4. Sincronización en tiempo real
+    presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            usuariosConectados = [];
+
+            // Extraer todos los usuarios conectados
+            for (const key in state) {
+                if (Array.isArray(state[key])) {
+                    state[key].forEach(u => usuariosConectados.push(u));
+                }
+            }
+
+            console.log("🟢 Usuarios en línea actualizados:", usuariosConectados);
+
+            // Si el usuario actual es director, renderizar la lista
+            if (window.usuarioActual.rol === 'director') {
+                renderizarUsuariosEnLinea();
+            }
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // Enviar la presencia con el total de ingresos guardado
+                await presenceChannel.track({
+                    id: window.usuarioActual.id,
+                    nombre: window.usuarioActual.nombre || 'Usuario',
+                    email: window.usuarioActual.email,
+                    rol: window.usuarioActual.rol,
+                    totalIngresos: window.usuarioActual.totalIngresos || 1, // 👈 Se transmite el conteo
+                    onlineAt: new Date().toISOString()
+                });
+            }
+        });
+
 
     // 4. Escuchar eventos de sincronización (Conexiones y Desconexiones)
     presenceChannel
@@ -1183,34 +1303,73 @@ async function inicializarPresenciaEnLinea() {
                 });
             }
         });
-}
+
 
 function renderizarUsuariosEnLinea() {
     const contenedor = document.getElementById('listaUsuariosEnLinea');
     if (!contenedor) return;
 
-    contenedor.innerHTML = '';
-
-    if (usuariosConectados.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400">Sin usuarios en línea</p>`;
+    if (!usuariosConectados || usuariosConectados.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 italic">No hay otros usuarios conectados...</p>`;
         return;
     }
 
-    usuariosConectados.forEach(user => {
-        const item = document.createElement('div');
-        item.className = 'flex items-center justify-between text-xs py-1 border-b border-slate-700/50';
-        
-        const badgeColor = user.rol === 'director' ? 'bg-amber-500/20 text-amber-300' : 'bg-indigo-500/20 text-indigo-300';
-
-        item.innerHTML = `
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span class="font-medium text-slate-200">${user.nombre}</span>
-            </div>
-            <span class="text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold ${badgeColor}">
-                ${user.rol}
-            </span>
-        `;
-        contenedor.appendChild(item);
+    // Filtrar por ID de usuario único para no duplicar si el mismo usuario tiene 2 pestañas abiertas
+    const usuariosUnicosMap = new Map();
+    usuariosConectados.forEach(u => {
+        if (!usuariosUnicosMap.has(u.id)) {
+            usuariosUnicosMap.set(u.id, u);
+        }
     });
+
+    const listaUnica = Array.from(usuariosUnicosMap.values());
+
+    contenedor.innerHTML = listaUnica.map(u => `
+        <div class="flex items-center justify-between py-1 px-2 hover:bg-slate-50 rounded-lg transition text-xs">
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-sm"></span>
+                <span class="font-medium text-slate-700">${u.nombre || u.email}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <!-- Badge de Contador de Accesos -->
+                <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold px-1.5 py-0.5 rounded-md" title="Total de ingresos al portal">
+                    ${u.totalIngresos || 1} accesos
+                </span>
+                <!-- Badge de Rol -->
+                <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+                    ${u.rol}
+                </span>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function registrarIngresoUsuario(userId) {
+    try {
+        // 1. Obtener el conteo actual
+        const { data: perfil, error: errSelect } = await _supabase
+            .from('perfiles')
+            .select('total_ingresos')
+            .eq('id', userId)
+            .single();
+
+        if (errSelect) throw errSelect;
+
+        const nuevoConteo = (perfil.total_ingresos || 0) + 1;
+
+        // 2. Actualizar el contador en la tabla
+        const { error: errUpdate } = await _supabase
+            .from('perfiles')
+            .update({ total_ingresos: nuevoConteo })
+            .eq('id', userId);
+
+        if (errUpdate) throw errUpdate;
+
+        console.log(`📊 Contador de accesos actualizado: ${nuevoConteo} ingresos.`);
+        return nuevoConteo;
+
+    } catch (e) {
+        console.warn("No se pudo actualizar el contador de ingresos:", e.message);
+        return null;
+    }
 }
