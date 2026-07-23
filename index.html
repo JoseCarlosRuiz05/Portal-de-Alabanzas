@@ -99,8 +99,8 @@
                 <p class="text-slate-400 text-xs p-2 text-center animate-pulse">Esperando inicio de sesión...</p>
             </div>
 
-            <!-- Botones exclusivos del Director -->
-            <div id="directorControls" class="hidden mt-4 flex flex-col gap-2">
+            <!-- Botones exclusivos y Monitor de Presencia del Director -->
+            <div id="directorControls" class="hidden mt-4 flex flex-col gap-3">
                 <button onclick="openModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -114,6 +114,20 @@
                     </svg>
                     Limpiar Todo el Orden
                 </button>
+
+                <!-- WIDGET: USUARIOS EN LÍNEA -->
+                <div class="mt-2 pt-3 border-t border-slate-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Usuarios Activos
+                        </h4>
+                    </div>
+                    
+                    <div id="listaUsuariosEnLinea" class="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        <p class="text-xs text-slate-400 italic">Sincronizando con el servidor...</p>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -129,7 +143,7 @@
                             <p class="text-sm text-slate-500">Tono base original: <span id="originalTone" class="font-bold">-</span></p>
                         </div>
 
-                        <!-- Controles de Transposición (Mantienen su formato horizontal exacto) -->
+                        <!-- Controles de Transposición -->
                         <div id="transposerWidget" class="hidden flex items-center gap-2 bg-slate-100 p-2 rounded-xl self-start md:self-auto">
                             <span class="text-xs font-bold text-slate-600 px-2">Transportar:</span>
                             <button type="button" onclick="transpose(-1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">-</button>

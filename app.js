@@ -17,6 +17,8 @@ let currentRole = 'director';
 let currentOffset = 0; 
 let idOrdenEditando = null; 
 let repertorioGlobal = []; 
+let presenceChannel = null;
+let usuariosConectados = [];
 window.listaLiturgiaActiva = [];
 window.usuarioActual = null;
 
@@ -118,11 +120,23 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     await obtenerRepertorioGlobal();
     await cargarLiturgiaDelDia();
     suscribirACambiosLiturgia();
+    inicializarPresenciaEnLinea();
 }
 
 async function cerrarSesion() {
     const confirmar = confirm("¿Estás seguro de que deseas cerrar sesión?");
     if (!confirmar) return;
+
+    // --- NUEVO: Desconectar del canal de presencia antes de cerrar sesión ---
+    if (presenceChannel) {
+        try {
+            await presenceChannel.untrack();
+            await presenceChannel.unsubscribe();
+        } catch (e) {
+            console.warn("Error al cerrar canal de presencia:", e);
+        }
+        presenceChannel = null;
+    }
 
     const { error } = await _supabase.auth.signOut();
 
@@ -135,6 +149,7 @@ async function cerrarSesion() {
 
     cancionesDB = [];
     repertorioGlobal = [];
+    usuariosConectados = []; // Limpiamos la lista local de presencia
     window.listaLiturgiaActiva = [];
     window.usuarioActual = null;
     activeSongId = null;
@@ -151,6 +166,10 @@ async function cerrarSesion() {
     if (document.getElementById('songLyricsContainer')) {
         document.getElementById('songLyricsContainer').innerHTML = "<p class='text-slate-400 text-center py-4'>Inicia sesión para visualizar las letras.</p>";
     }
+
+    // Limpiar el contenedor de usuarios activos si existe en pantalla
+    const contenedorUsuarios = document.getElementById('listaUsuariosEnLinea');
+    if (contenedorUsuarios) contenedorUsuarios.innerHTML = '';
 
     const selector = document.getElementById('roleSelector');
     if (selector) selector.disabled = false;
@@ -1083,3 +1102,77 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.log("🚀 Portal listo y esperando autenticación manual...");
     }
 });
+
+function inicializarPresenciaEnLinea() {
+    if (!window.usuarioActual) return;
+
+    // Crear o reutilizar un canal para presencia
+    presenceChannel = _supabase.channel('usuarios_en_linea', {
+        config: {
+            presence: {
+                key: window.usuarioActual.id, // Identificador único del usuario
+            },
+        },
+    });
+
+    // Escuchar cambios cuando alguien se conecta o desconecta
+    presenceChannel
+        .on('presence', { event: 'sync' }, () => {
+            const state = presenceChannel.presenceState();
+            usuariosConectados = [];
+
+            // Extraer datos de todos los usuarios conectados
+            for (const id in state) {
+                if (state[id].length > 0) {
+                    usuariosConectados.push(state[id][0]);
+                }
+            }
+
+            // Si el usuario actual es director, actualizar la lista en la pantalla
+            if (currentRole === 'director') {
+                renderizarUsuariosEnLinea();
+            }
+        })
+        .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+                // Enviar la información de este usuario al canal
+                await presenceChannel.track({
+                    id: window.usuarioActual.id,
+                    nombre: window.usuarioActual.nombre || 'Usuario',
+                    email: window.usuarioActual.email,
+                    rol: window.usuarioActual.rol,
+                    onlineAt: new Date().toISOString()
+                });
+            }
+        });
+}
+
+function renderizarUsuariosEnLinea() {
+    const contenedor = document.getElementById('listaUsuariosEnLinea');
+    if (!contenedor) return;
+
+    contenedor.innerHTML = '';
+
+    if (usuariosConectados.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400">Sin usuarios en línea</p>`;
+        return;
+    }
+
+    usuariosConectados.forEach(user => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between text-xs py-1 border-b border-slate-700/50';
+        
+        const badgeColor = user.rol === 'director' ? 'bg-amber-500/20 text-amber-300' : 'bg-indigo-500/20 text-indigo-300';
+
+        item.innerHTML = `
+            <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="font-medium text-slate-200">${user.nombre}</span>
+            </div>
+            <span class="text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold ${badgeColor}">
+                ${user.rol}
+            </span>
+        `;
+        contenedor.appendChild(item);
+    });
+}
