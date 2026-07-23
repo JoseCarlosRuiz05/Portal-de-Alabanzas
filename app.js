@@ -1373,3 +1373,125 @@ async function registrarIngresoUsuario(userId) {
         return null;
     }
 }
+
+function exportarCancionPDF() {
+    // 1. Obtener el contenedor principal y el título
+    const contenedorOriginal = document.getElementById('contenedorExportablePDF') 
+                             || document.querySelector('main section:last-child');
+    const tituloElemento = document.getElementById('songTitle');
+    const tituloCancion = tituloElemento ? tituloElemento.innerText.trim() : 'Alabanza';
+
+    if (!contenedorOriginal || tituloCancion === 'Selecciona una Alabanza') {
+        alert("⚠️ No hay ninguna canción seleccionada para exportar.");
+        return;
+    }
+
+    // 2. Clonar el contenedor para modificarlo sin alterar la pantalla visual
+    const clon = contenedorOriginal.cloneNode(true);
+
+    // Ocultar botones e interactivos
+    const elementosAOcultar = clon.querySelectorAll('#transposerWidget, #btnExportarPDF, #btnGuardarTono, button');
+    elementosAOcultar.forEach(el => el.remove());
+
+    // 3. Forzar fondo blanco en el clon y en todos sus contenedores
+    clon.style.backgroundColor = '#ffffff';
+    clon.style.color = '#000000';
+    clon.style.padding = '10px';
+
+    const lyricsContainer = clon.querySelector('#songLyricsContainer');
+    if (lyricsContainer) {
+        lyricsContainer.style.backgroundColor = '#ffffff';
+        lyricsContainer.style.color = '#000000';
+        lyricsContainer.style.border = '1px solid #cbd5e1';
+        lyricsContainer.style.boxShadow = 'none';
+        lyricsContainer.style.fontSize = '11px'; // Reducimos tamaño para asegurar 1 página
+        lyricsContainer.style.lineHeight = '1.3';
+    }
+
+    // 4. FORZAR A TODOS LOS ELEMENTOS HIJOS A TENER TEXTO OSCURO
+    // Esto sobrescribe cualquier clase de Tailwind como text-slate-400, text-white, etc.
+    const todosLosElementos = clon.querySelectorAll('*');
+    todosLosElementos.forEach(el => {
+        // Remover clases de color de texto de Tailwind si existen
+        el.className = el.className.replace(/text-[a-z0-9-]+/g, '');
+
+        // Si es un acorde o etiqueta importante, le damos tono destacado
+        if (el.tagName === 'SPAN' && (el.innerText.trim().length <= 4 || el.classList.contains('chord'))) {
+            el.style.color = '#1e3a8a'; // Azul oscuro elegante para acordes (o '#000000' si prefieres todo negro)
+            el.style.fontWeight = 'bold';
+        } else {
+            el.style.color = '#000000'; // Negro puro para letras, títulos y subtítulos
+        }
+    });
+
+    // 5. Configuración del PDF (Forzando 1 sola hoja Carta)
+    const opciones = {
+        margin:       [8, 8, 8, 8], // Márgenes estrechos en mm [arriba, izquierda, abajo, derecha]
+        filename:     `${tituloCancion.replace(/[^a-zA-Z0-9_-]/g, '_')}_Acordes.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: 'avoid-all' }
+    };
+
+    // Feedback visual en el botón
+    const btnPDF = document.getElementById('btnExportarPDF');
+    const textoOriginal = btnPDF ? btnPDF.innerHTML : '';
+    if (btnPDF) {
+        btnPDF.innerText = "Generando PDF...";
+        btnPDF.disabled = true;
+    }
+
+    // 6. Descargar PDF
+    html2pdf().set(opciones).from(clon).save().then(() => {
+        if (btnPDF) {
+            btnPDF.innerHTML = textoOriginal;
+            btnPDF.disabled = false;
+        }
+    }).catch(err => {
+        console.error("Error al exportar PDF:", err);
+        alert("❌ Error al generar el PDF.");
+        if (btnPDF) {
+            btnPDF.innerHTML = textoOriginal;
+            btnPDF.disabled = false;
+        }
+    });
+}
+
+function exportarBibliotecaPDF() {
+    const contenedorOriginal = document.getElementById('vistaDetalleBiblioteca');
+    const tituloElemento = document.getElementById('bibDetalleTitulo');
+    const tituloCancion = tituloElemento ? tituloElemento.innerText.trim() : 'Alabanza_Biblioteca';
+
+    if (!contenedorOriginal) return;
+
+    // Clonar contenedor de la biblioteca
+    const clon = contenedorOriginal.cloneNode(true);
+
+    // Ocultar botones dentro del clon
+    const botones = clon.querySelectorAll('button');
+    botones.forEach(b => b.remove());
+
+    // Estilos claros
+    clon.style.backgroundColor = '#ffffff';
+    clon.style.color = '#000000';
+    clon.style.padding = '15px';
+
+    const textoContenido = clon.querySelector('#bibDetalleContenido');
+    if (textoContenido) {
+        textoContenido.style.color = '#000000';
+        textoContenido.style.fontSize = '12px';
+        textoContenido.style.lineHeight = '1.4';
+    }
+
+    const opciones = {
+        margin:       [8, 10, 8, 10],
+        filename:     `${tituloCancion.replace(/[^a-zA-Z0-9_-]/g, '_')}_Acordes.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: 'avoid-all' }
+    };
+
+    html2pdf().set(opciones).from(clon).save();
+}
