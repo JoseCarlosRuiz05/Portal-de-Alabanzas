@@ -92,8 +92,20 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
 
     console.log(`✨ Bienvenido ${perfil.nombre}. Rol detectado: ${perfil.rol}`);
     
+    // 1. Guardar objeto global del usuario
     window.usuarioActual = { id: userId, email: userEmail, rol: perfil.rol, nombre: perfil.nombre };
 
+    // 2. CONECTAR A PRESENCIA INMEDIATAMENTE
+    // Se ejecuta aquí para anunciar la presencia al servidor sin esperar la carga de datos
+    try {
+        if (typeof inicializarPresenciaEnLinea === 'function') {
+            inicializarPresenciaEnLinea();
+        }
+    } catch (e) {
+        console.warn("Error al inicializar la presencia en línea:", e);
+    }
+
+    // 3. Actualizar la interfaz de usuario (UI)
     const lblUser = document.getElementById('userNameDisplay');
     if (lblUser) lblUser.innerText = perfil.nombre || userEmail;
 
@@ -117,10 +129,14 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) loginScreen.classList.add('hidden');
     
-    await obtenerRepertorioGlobal();
-    await cargarLiturgiaDelDia();
+    // 4. Cargar datos de la base de datos en paralelo
+    await Promise.all([
+        obtenerRepertorioGlobal(),
+        cargarLiturgiaDelDia()
+    ]);
+
+    // 5. Suscribirse a las actualizaciones de la liturgia
     suscribirACambiosLiturgia();
-    inicializarPresenciaEnLinea();
 }
 
 async function cerrarSesion() {
@@ -1103,39 +1119,61 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function inicializarPresenciaEnLinea() {
+async function inicializarPresenciaEnLinea() {
     if (!window.usuarioActual) return;
 
-    // Crear o reutilizar un canal para presencia
+    // 1. Si ya existe un canal activo previo, lo limpiamos para evitar duplicados
+    if (presenceChannel) {
+        try {
+            await presenceChannel.unsubscribe();
+        } catch (e) {
+            console.warn("Limpia de canal anterior:", e);
+        }
+        presenceChannel = null;
+    }
+
+    // 2. Generar Key única por pestaña/sesión (permite probar varias pestañas)
+    const sessionKey = `${window.usuarioActual.id}_${Math.random().toString(36).substring(2, 7)}`;
+
+    // 3. Crear el canal
     presenceChannel = _supabase.channel('usuarios_en_linea', {
         config: {
             presence: {
-                key: window.usuarioActual.id, // Identificador único del usuario
-            },
-        },
+                key: sessionKey
+            }
+        }
     });
 
-    // Escuchar cambios cuando alguien se conecta o desconecta
+    // 4. Escuchar eventos de sincronización (Conexiones y Desconexiones)
     presenceChannel
         .on('presence', { event: 'sync' }, () => {
             const state = presenceChannel.presenceState();
             usuariosConectados = [];
 
-            // Extraer datos de todos los usuarios conectados
-            for (const id in state) {
-                if (state[id].length > 0) {
-                    usuariosConectados.push(state[id][0]);
+            // Recorrer de forma exhaustiva todos los clientes en linea
+            for (const key in state) {
+                if (Array.isArray(state[key])) {
+                    state[key].forEach(u => usuariosConectados.push(u));
                 }
             }
 
-            // Si el usuario actual es director, actualizar la lista en la pantalla
-            if (currentRole === 'director') {
-                renderizarUsuariosEnLinea();
+            console.log("🟢 Usuarios en línea actualizados:", usuariosConectados);
+
+            // Si el rol activo en pantalla es Director, actualizar la lista del DOM
+            // (Comprobamos tanto currentRole como window.usuarioActual.rol para evitar fallos de scope)
+            const rolActivo = typeof currentRole !== 'undefined' ? currentRole : window.usuarioActual.rol;
+            
+            if (rolActivo === 'director') {
+                if (typeof renderizarUsuariosEnLinea === 'function') {
+                    renderizarUsuariosEnLinea();
+                } else if (typeof renderizarUsuariosActivos === 'function') {
+                    renderizarUsuariosActivos(); // Fallback por si tu función tiene otro nombre
+                }
             }
         })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
-                // Enviar la información de este usuario al canal
+                // Enviar la presencia de esta sesión activa
                 await presenceChannel.track({
                     id: window.usuarioActual.id,
                     nombre: window.usuarioActual.nombre || 'Usuario',
