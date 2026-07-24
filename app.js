@@ -1684,17 +1684,47 @@ function exportarBibliotecaPDF() {
 }
 
 function obtenerTeclasCalculadas(acorde) {
-    const NOTAS_MAP = { "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11 };
+    const NOTAS_MAP = { 
+        "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, 
+        "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, 
+        "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11 
+    };
     
+    // Separar acorde base y bajo (ej. Bsus2/D#)
     let [base, bajo] = acorde.split('/');
-    let t = base.replace('m', '');
-    let root = NOTAS_MAP[t] !== undefined ? NOTAS_MAP[t] : 0;
     
-    let esMenor = base.includes('m') && !base.includes('maj');
-    let tercera = (root + (esMenor ? 3 : 4)) % 12;
-    let quinta = (root + 7) % 12;
+    // Extraer la tónica (T)
+    let matchTonica = base.match(/^[A-G][#b]?/i);
+    if (!matchTonica) return { keys: [0, 4, 7], bassKey: null };
     
+    let tonicaStr = matchTonica[0];
+    let root = NOTAS_MAP[tonicaStr] !== undefined ? NOTAS_MAP[tonicaStr] : 0;
+    
+    // Lo que queda después de la tónica (ej: "sus2", "m", "maj7", "dim", etc.)
+    let sufijo = base.substring(tonicaStr.length);
+    
+    let intervaloMedio = (root + 4) % 12; // Por defecto: 3ª Mayor
+    let intervaloQuinta = (root + 7) % 12; // Por defecto: 5ª Justa
+
+    // Analizar tipo de acorde según el sufijo
+    if (/sus2/i.test(sufijo)) {
+        intervaloMedio = (root + 2) % 12; // 2ª Mayor (sus2)
+    } else if (/sus4|sus/i.test(sufijo)) {
+        intervaloMedio = (root + 5) % 12; // 4ª Justa (sus4)
+    } else if (/dim/i.test(sufijo)) {
+        intervaloMedio = (root + 3) % 12; // 3ª Menor
+        intervaloQuinta = (root + 6) % 12; // 5ª Disminuida
+    } else if (/aug|\+/i.test(sufijo)) {
+        intervaloMedio = (root + 4) % 12; // 3ª Mayor
+        intervaloQuinta = (root + 8) % 12; // 5ª Aumentada
+    } else if (/m/i.test(sufijo) && !/maj/i.test(sufijo)) {
+        intervaloMedio = (root + 3) % 12; // 3ª Menor (Menor estándar)
+    }
+
     let bassKey = bajo && NOTAS_MAP[bajo] !== undefined ? NOTAS_MAP[bajo] : null;
 
-    return { keys: [root, tercera, quinta], bassKey: bassKey };
+    return { 
+        keys: [root, intervaloMedio, intervaloQuinta], 
+        bassKey: bassKey 
+    };
 }
