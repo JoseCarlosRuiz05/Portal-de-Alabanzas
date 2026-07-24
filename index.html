@@ -263,136 +263,143 @@
                     </div>
                 </div>
 
+                <!-- Campos Exclusivos para Canción -->
                 <div id="seccionExclusivaCancion" class="space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tono Base</label>
-                        <select id="modalTono" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500">
-                            <option value="C">C</option><option value="C#">C#</option><option value="D">D</option><option value="D#">D#</option>
-                            <option value="E">E</option><option value="F">F</option><option value="F#">F#</option><option value="G">G</option>
-                            <option value="G#">G#</option><option value="A">A</option><option value="A#">A#</option><option value="B">B</option>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tono Base Original</label>
+                        <select id="modalTono" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 font-mono">
+                            <option value="C">C (Do)</option>
+                            <option value="C#">C# / Db</option>
+                            <option value="D">D (Re)</option>
+                            <option value="D#">D# / Eb</option>
+                            <option value="E">E (Mi)</option>
+                            <option value="F">F (Fa)</option>
+                            <option value="F#">F# / Gb</option>
+                            <option value="G">G (Sol)</option>
+                            <option value="G#">G# / Ab</option>
+                            <option value="A">A (La)</option>
+                            <option value="A#">A# / Bb</option>
+                            <option value="B">B (Si)</option>
                         </select>
                     </div>
+
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Letra con Acordes (Formato con corchetes)</label>
-                        <textarea id="modalLetra" rows="5" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm font-mono focus:ring-2 focus:ring-indigo-500" placeholder="[C] Tu gracia es [G] suficiente..."></textarea>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Letra y Acordes</label>
+                        <textarea id="modalLetra" rows="6" class="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500" placeholder="Escribe la letra con notas entre corchetes, ej: [C]Gracia [G]sublime..."></textarea>
                     </div>
                 </div>
 
-                <div id="seccionExclusivaGeneral" class="hidden">
-                    <div class="mt-3">
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Anotaciones / Reflexiones / Textos</label>
-                        <textarea id="modalComentarios" rows="4" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 text-slate-800" placeholder="Escribe aquí las acotaciones..."></textarea>
+                <!-- Campos Exclusivos para Punto General -->
+                <div id="seccionExclusivaGeneral" class="hidden space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Observaciones / Indicaciones</label>
+                        <textarea id="modalComentarios" rows="4" class="w-full p-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Detalles de la actividad, quién dirige, etc..."></textarea>
                     </div>
                 </div>
 
-                <div class="flex justify-end gap-2 pt-2">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">Cancelar</button>
-                    <button type="submit" class="px-5 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-sm">Guardar Cambios</button>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 text-sm font-semibold hover:bg-slate-100 transition">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition shadow-md">Guardar Cambios</button>
                 </div>
             </form>
         </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- MODAL: DIAGRAMA DE ACORDES (Guitarra/Piano/Bajo) -->
+    <!-- MODAL: Biblioteca de Alabanzas             -->
     <!-- ========================================== -->
-    <div id="modalAcorde" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
-            <button onclick="cerrarModalAcorde()" class="absolute top-4 right-4 text-slate-400 hover:text-white font-bold p-1">✕</button>
-            
-            <div class="text-center mb-6">
-                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Diccionario Musical</span>
-                <h3 class="text-3xl font-extrabold text-white mt-1" id="nombreAcordeModal">C</h3>
-            </div>
-
-            <div class="flex border-b border-slate-700 mb-6 justify-center gap-4">
-                <button onclick="cambiarPestanaInstrumento('guitarra')" id="tabGuitarra" class="pb-2 text-sm font-bold text-amber-400 border-b-2 border-amber-400 transition">🎸 Guitarra</button>
-                <button onclick="cambiarPestanaInstrumento('teclado')" id="tabTeclado" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">🎹 Teclado</button>
-                <button onclick="cambiarPestanaInstrumento('bajo')" id="tabBajo" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">🎸 Bajo</button>
-            </div>
-
-            <div class="bg-slate-900 p-6 rounded-xl flex flex-col items-center justify-center min-h-[200px] border border-slate-700/50">
-                <div id="contenedorDiagrama" class="flex flex-col items-center justify-center">
-                    <!-- Contenido dinámico -->
-                </div>
-            </div>
-
-            <p class="text-[11px] text-slate-400 text-center mt-4">* Muestra la posición estándar base en cifrado americano.</p>
-        </div>
-    </div>
-
-    <!-- ========================================== -->
-    <!-- MODAL: BIBLIOTECA DE CANTOS (INTEGRANTES)  -->
-    <!-- ========================================== -->
-    <div id="modalBiblioteca" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            
-            <div class="p-4 border-b border-slate-700 flex items-center justify-between bg-slate-800/50">
-                <div class="flex items-center gap-2">
-                    <button id="btnVolverBiblioteca" onclick="volverAListaBiblioteca()" class="hidden text-amber-400 hover:text-amber-300 text-sm font-bold flex items-center gap-1">
-                        ← Volver
+    <div id="modalBiblioteca" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-800 text-slate-100 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-700">
+            <!-- Header Modal -->
+            <div class="p-5 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <button id="btnVolverBiblioteca" onclick="volverAListaBiblioteca()" class="hidden p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
                     </button>
-                    <h3 id="tituloModalBiblioteca" class="text-lg font-bold text-white flex items-center gap-2">
-                        📖 Biblioteca de Alabanzas
-                    </h3>
+                    <h3 class="text-lg font-bold text-white" id="tituloModalBiblioteca">📖 Biblioteca de Alabanzas</h3>
                 </div>
-                <button onclick="cerrarModalBiblioteca()" class="text-slate-400 hover:text-white p-1 font-bold">
-                    ✕
+                <button onclick="cerrarModalBiblioteca()" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                 </button>
             </div>
 
-            <div id="vistaListaBiblioteca" class="flex-1 flex flex-col overflow-hidden">
-                <div class="p-4 border-b border-slate-700 bg-slate-900/40">
-                    <input type="text" id="inputBuscarBiblioteca" oninput="filtrarBibliotecaCantos()" 
-                           placeholder="🔍 Buscar por título, momento o tono..." 
-                           class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2 text-sm text-slate-100 focus:outline-none focus:border-amber-400">
+            <!-- VISTA 1: Lista con buscador -->
+            <div id="vistaListaBiblioteca" class="p-5 flex flex-col flex-1 overflow-hidden">
+                <div class="mb-4 shrink-0">
+                    <input type="text" id="inputBuscarBiblioteca" oninput="filtrarBibliotecaCantos()" placeholder="🔍 Buscar por título, momento o tono..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                    <span id="cantosTotalBadge" class="text-[11px] text-slate-400 mt-1.5 block px-1">Cargando repertorio...</span>
                 </div>
 
-                <div id="listaBibliotecaContainer" class="p-4 overflow-y-auto flex-1 divide-y divide-slate-700/50">
-                    <!-- Contenido dinámico -->
+                <div id="listaBibliotecaContainer" class="flex-1 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-700/50">
+                    <p class="text-xs text-slate-400 text-center py-8">Cargando alabanzas...</p>
                 </div>
             </div>
 
-            <div id="vistaDetalleBiblioteca" class="hidden flex-1 overflow-y-auto p-5 bg-slate-900/60">
-                <div class="mb-4 pb-3 border-b border-slate-700 flex justify-between items-start">
+            <!-- VISTA 2: Detalle de Canto Seleccionado -->
+            <div id="vistaDetalleBiblioteca" class="hidden p-6 flex-1 overflow-y-auto space-y-4">
+                <div class="border-b border-slate-700 pb-4 flex justify-between items-start gap-4">
                     <div>
-                        <h2 id="bibDetalleTitulo" class="text-xl font-bold text-amber-400"></h2>
-                        <span id="bibDetalleMomento" class="text-xs font-semibold uppercase text-indigo-400"></span>
+                        <span id="bibDetalleMomento" class="text-xs font-bold text-indigo-400 uppercase tracking-wider">-</span>
+                        <h2 id="bibDetalleTitulo" class="text-2xl font-bold text-amber-400 mt-1">-</h2>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <button 
-                            id="btnExportarBibPDF" 
-                            type="button" 
-                            onclick="exportarBibliotecaPDF()" 
-                            class="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs transition flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            PDF
-                        </button>
-                        <div id="bibDetalleTonoContainer" class="px-3 py-1 bg-amber-500/20 border border-amber-500/30 rounded-lg text-amber-300 font-bold text-sm">
-                            Tono: <span id="bibDetalleTono">-</span>
-                        </div>
+                    <div id="bibDetalleTonoContainer" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl text-center">
+                        <span class="text-[10px] text-slate-400 block uppercase font-semibold">Tono</span>
+                        <span id="bibDetalleTono" class="text-sm font-bold text-amber-400 font-mono">-</span>
                     </div>
                 </div>
 
-                <pre id="bibDetalleContenido" class="font-mono text-sm leading-relaxed whitespace-pre-wrap text-slate-200 select-none"></pre>
-            </div>
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <pre id="bibDetalleContenido" class="font-mono text-xs sm:text-sm whitespace-pre-wrap text-slate-200 leading-relaxed"></pre>
+                </div>
 
-            <div class="p-3 border-t border-slate-700 bg-slate-900/50 flex justify-between items-center text-xs text-slate-400">
-                <span id="cantosTotalBadge">0 alabanzas registradas</span>
-                <button onclick="cerrarModalBiblioteca()" class="px-4 py-1.5 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition font-semibold">
-                    Cerrar
-                </button>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button onclick="exportarBibliotecaPDF()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Descargar PDF
+                    </button>
+                </div>
             </div>
-
         </div>
     </div>
-        
+
     <!-- ========================================== -->
-    <!-- CONEXIÓN DE LIBRERÍAS Y SCRIPT EXTERNO     -->
+    <!-- MODAL: Diagrama / Gráfico de Acordes       -->
     <!-- ========================================== -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="app.js"></script>
+    <div id="modalAcorde" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-slate-900 text-slate-100 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-700 p-6 flex flex-col items-center">
+            
+            <div class="flex justify-between items-center w-full mb-4">
+                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Diagrama de Acorde</span>
+                <button onclick="cerrarModalAcorde()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Selector de Instrumento -->
+            <div class="flex border-b border-slate-700 w-full justify-center gap-6 mb-4">
+                <button id="tabGuitarra" onclick="cambiarPestanaInstrumento('guitarra')" class="pb-2 text-sm font-bold text-amber-400 border-b-2 border-amber-400 transition">Guitarra</button>
+                <button id="tabTeclado" onclick="cambiarPestanaInstrumento('teclado')" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">Teclado</button>
+                <button id="tabBajo" onclick="cambiarPestanaInstrumento('bajo')" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">Bajo</button>
+            </div>
+
+            <!-- Contenedor dinámico para la gráfica del acorde -->
+            <div id="contenedorDiagrama" class="w-full min-h-[220px] flex items-center justify-center bg-slate-950 rounded-xl border border-slate-800 p-4">
+                <p class="text-xs text-slate-500 animate-pulse">Cargando gráfico...</p>
+            </div>
+
+            <button onclick="cerrarModalAcorde()" class="mt-5 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 px-4 rounded-xl transition">
+                Cerrar
+            </button>
+        </div>
+    </div>
+
 </body>
 </html>
