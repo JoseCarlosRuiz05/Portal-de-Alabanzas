@@ -22,6 +22,10 @@ let usuariosConectados = [];
 window.listaLiturgiaActiva = [];
 window.usuarioActual = null;
 
+// Variables para el Modal de Diagrama de Acordes
+let acordeActualModal = '';
+let instrumentoActualModal = 'guitarra';
+
 // EXPRESIÓN REGULAR COMPLETA PARA DETECTAR Y VALIDAR ACORDES
 const REGEX_ACORDE_STRING = "^[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\\/[A-G][#b]?)?$";
 const REGEX_ACORDE_MATCH = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\/[A-G][#b]?)?\b/gi;
@@ -69,14 +73,12 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     let perfil = null;
 
     try {
-        // 1. Consultar el perfil buscando por correo
         let { data, error } = await _supabase
             .from('perfiles')
             .select('id, rol, nombre, total_ingresos')
-            .eq('email', userEmail) // 👈 Cambiado a email para evitar fallos de ID
+            .eq('email', userEmail)
             .maybeSingle(); 
 
-        // Fallback: Si no encuentra por email, buscar por id
         if (!data) {
             let resId = await _supabase
                 .from('perfiles')
@@ -107,14 +109,13 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
         return;
     }
 
-    // 2. INCREMENTAR CONTADOR BUSCANDO POR EMAIL
     let accesosActualizados = (perfil.total_ingresos || 0) + 1;
 
     try {
         const { data: updateData, error: errUpd } = await _supabase
             .from('perfiles')
             .update({ total_ingresos: accesosActualizados })
-            .eq('email', userEmail) // 👈 UPDATE directo por email
+            .eq('email', userEmail)
             .select();
 
         if (errUpd) {
@@ -131,7 +132,6 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
         accesosActualizados = perfil.total_ingresos || 1;
     }
 
-    // 3. Guardar objeto global del usuario
     window.usuarioActual = { 
         id: userId, 
         email: userEmail, 
@@ -140,7 +140,6 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
         totalIngresos: accesosActualizados 
     };
 
-    // 4. Conectar Presencia en Tiempo Real
     try {
         if (typeof inicializarPresenciaEnLinea === 'function') {
             inicializarPresenciaEnLinea();
@@ -149,11 +148,9 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
         console.warn("Error al inicializar la presencia:", e);
     }
 
-    // 5. Ocultar pantalla de Login
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) loginScreen.classList.add('hidden');
 
-    // 6. Actualizar elementos UI
     const lblUser = document.getElementById('userNameDisplay');
     if (lblUser) lblUser.innerText = perfil.nombre || userEmail;
 
@@ -172,12 +169,10 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
         selector.disabled = true; 
     }
 
-    // 7. Activar vista de Director / Músico
     if (typeof changeRole === 'function') {
         changeRole(perfil.rol);
     }
 
-    // 8. Cargar datos principales
     try {
         await Promise.all([
             obtenerRepertorioGlobal(),
@@ -193,7 +188,6 @@ async function cerrarSesion() {
     const confirmar = confirm("¿Estás seguro de que deseas cerrar sesión?");
     if (!confirmar) return;
 
-    // --- NUEVO: Desconectar del canal de presencia antes de cerrar sesión ---
     if (presenceChannel) {
         try {
             await presenceChannel.untrack();
@@ -215,7 +209,7 @@ async function cerrarSesion() {
 
     cancionesDB = [];
     repertorioGlobal = [];
-    usuariosConectados = []; // Limpiamos la lista local de presencia
+    usuariosConectados = [];
     window.listaLiturgiaActiva = [];
     window.usuarioActual = null;
     activeSongId = null;
@@ -233,7 +227,6 @@ async function cerrarSesion() {
         document.getElementById('songLyricsContainer').innerHTML = "<p class='text-slate-400 text-center py-4'>Inicia sesión para visualizar las letras.</p>";
     }
 
-    // Limpiar el contenedor de usuarios activos si existe en pantalla
     const contenedorUsuarios = document.getElementById('listaUsuariosEnLinea');
     if (contenedorUsuarios) contenedorUsuarios.innerHTML = '';
 
@@ -382,42 +375,57 @@ function transposeChord(chord, steps) {
 }
 
 function renderizarCancionActiva() {
-    const cancion = window.listaLiturgiaActiva.find(c => c.id === activeSongId) || cancionesDB.find(c => c.id === activeSongId);
+    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
+                 || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
     
+    const transposerWidget = document.getElementById('transposerWidget');
+    const btnGuardar = document.getElementById('btnGuardarTono');
+    const lyricsContainer = document.getElementById('songLyricsContainer');
+
     if (!cancion) {
-        document.getElementById('songLyricsContainer').innerHTML = "<p class='text-slate-400 text-center py-6'>Selecciona un punto o alabanza de la lista para ver el detalle.</p>";
+        if (lyricsContainer) {
+            lyricsContainer.innerHTML = "<p class='text-slate-400 text-center py-6'>Selecciona un punto o alabanza de la lista para ver el detalle.</p>";
+        }
         document.getElementById('songTitle').innerText = "Selecciona una Alabanza";
         document.getElementById('songCategory').innerText = "-";
         document.getElementById('originalTone').innerText = "-";
         document.getElementById('currentTone').innerText = "-";
         
-        const btnGuardar = document.getElementById('btnGuardarTono');
+        if (transposerWidget) transposerWidget.classList.add('hidden');
         if (btnGuardar) btnGuardar.classList.add('hidden');
         return;
     }
 
-    document.getElementById('songTitle').innerText = cancion.titulo;
+    document.getElementById('songTitle').innerText = cancion.titulo || 'Sin título';
     document.getElementById('songCategory').innerText = cancion.momento || "General";
     document.getElementById('originalTone').innerText = cancion.tono_original || "-";
 
     const esCancion = cancion.tipo === 'cancion' || (cancion.tono_original && cancion.tono_original !== '-');
-
     let tonoCalculado = cancion.tono_original || "-";
+
     if (esCancion && tonoCalculado !== "-") {
-        const idxOriginal = scale.indexOf(cancion.tono_original);
+        if (transposerWidget) transposerWidget.classList.remove('hidden');
+
+        const scaleArray = typeof scale !== 'undefined' ? scale : ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        const idxOriginal = scaleArray.indexOf(cancion.tono_original);
+        
         if (idxOriginal !== -1) {
-            const idxActual = (idxOriginal + currentOffset + 12) % 12;
-            tonoCalculado = scale[idxActual];
+            const offsetActual = typeof currentOffset !== 'undefined' ? currentOffset : 0;
+            const idxActual = (idxOriginal + offsetActual + 12) % 12;
+            tonoCalculado = scaleArray[idxActual];
         }
         document.getElementById('currentTone').innerText = tonoCalculado;
     } else {
+        if (transposerWidget) transposerWidget.classList.add('hidden');
         document.getElementById('currentTone').innerText = "-";
     }
 
-    const btnGuardar = document.getElementById('btnGuardarTono');
     if (btnGuardar) {
-        const seCambioNota = currentOffset !== 0;
-        if (currentRole === 'director' && esCancion && seCambioNota) {
+        const offsetActual = typeof currentOffset !== 'undefined' ? currentOffset : 0;
+        const seCambioNota = offsetActual !== 0;
+        const rolUsuario = typeof currentRole !== 'undefined' ? currentRole : 'integrante';
+
+        if (rolUsuario === 'director' && esCancion && seCambioNota) {
             btnGuardar.classList.remove('hidden');
         } else {
             btnGuardar.classList.add('hidden');
@@ -425,36 +433,50 @@ function renderizarCancionActiva() {
     }
 
     let textoFinal = cancion.letra_acordes || "";
+    const offsetActual = typeof currentOffset !== 'undefined' ? currentOffset : 0;
+    const rolUsuario = typeof currentRole !== 'undefined' ? currentRole : 'integrante';
 
     if (esCancion) {
-        if (currentRole === 'cantante') {
+        if (rolUsuario === 'cantante') {
+            // MODO CANTANTE: Ocultar acordes
             textoFinal = textoFinal.replace(/\[.*?\]/g, '');
 
             let lineas = textoFinal.split('\n');
-            let lineasSoloLetra = lineas.filter(linea => {
+            let lineasSoloLetra = [];
+
+            lineas.forEach(linea => {
                 let lineaLimpia = linea.trim();
-                if (lineaLimpia === "") return true;
+                if (lineaLimpia === "") {
+                    lineasSoloLetra.push("");
+                    return;
+                }
 
                 if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
-                    return true;
+                    lineasSoloLetra.push(lineaLimpia);
+                    return;
                 }
 
                 let palabras = lineaLimpia.split(/\s+/);
-                const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+                const regPattern = typeof REGEX_ACORDE_STRING !== 'undefined' ? REGEX_ACORDE_STRING : "^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?";
+                const regValidator = new RegExp(regPattern, "i");
                 let esLineaDeAcordes = palabras.every(palabra => regValidator.test(palabra));
 
-                return !esLineaDeAcordes;
+                if (!esLineaDeAcordes) {
+                    let lineaNormalizada = lineaLimpia.replace(/\s+/g, ' ');
+                    lineasSoloLetra.push(lineaNormalizada);
+                }
             });
 
-            document.getElementById('songLyricsContainer').innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasSoloLetra.join('\n')}</pre>`;
+            lyricsContainer.innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasSoloLetra.join('\n')}</pre>`;
 
         } else {
+            // MODO MÚSICO / DIRECTOR: Acordes interactivos (clickeables)
             if (textoFinal.includes('[') && textoFinal.includes(']')) {
                 textoFinal = textoFinal.replace(/\[(.*?)\]/g, (match, chord) => {
-                    const transpuerto = transposeChord(chord, currentOffset);
-                    return `<span class="text-amber-400 font-bold font-mono px-0.5">${transpuerto}</span>`;
+                    const transpuerto = typeof transposeChord === 'function' ? transposeChord(chord, offsetActual) : chord;
+                    return `<span onclick="mostrarGraficoAcorde('${transpuerto}')" class="chord text-amber-400 font-bold font-mono px-0.5 cursor-pointer hover:bg-amber-500/20 hover:underline rounded transition" title="Ver cómo tocar ${transpuerto}">${transpuerto}</span>`;
                 });
-                document.getElementById('songLyricsContainer').innerHTML = `<pre class="font-mono whitespace-pre-wrap text-slate-100">${textoFinal}</pre>`;
+                lyricsContainer.innerHTML = `<pre class="font-mono whitespace-pre-wrap text-slate-100">${textoFinal}</pre>`;
             } else {
                 let lineas = textoFinal.split('\n');
                 let resultadoLineas = lineas.map(linea => {
@@ -465,29 +487,28 @@ function renderizarCancionActiva() {
                         return `<span class="text-indigo-300 font-bold">${linea}</span>`;
                     }
 
-                    // VALIDACIÓN POR LÍNEA COMPLETA: Solo transponer si TODAS las palabras son acordes
                     let palabras = lineaLimpia.split(/\s+/);
-                    const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+                    const regPattern = typeof REGEX_ACORDE_STRING !== 'undefined' ? REGEX_ACORDE_STRING : "^[A-G][#b]?(m|maj|min|dim|aug|sus)?[0-9]?";
+                    const regValidator = new RegExp(regPattern, "i");
                     let esLineaDeAcordes = palabras.every(palabra => regValidator.test(palabra));
 
                     if (esLineaDeAcordes) {
                         let tokens = linea.split(/(\s+)/); 
                         return tokens.map(token => {
                             if (token.trim() === "") return token; 
-                            let transpuerto = transposeChord(token.trim(), currentOffset);
-                            return `<span class="text-amber-400 font-bold font-mono">${transpuerto}</span>`;
+                            let transpuerto = typeof transposeChord === 'function' ? transposeChord(token.trim(), offsetActual) : token.trim();
+                            return `<span onclick="mostrarGraficoAcorde('${transpuerto}')" class="chord text-amber-400 font-bold font-mono cursor-pointer hover:bg-amber-500/20 hover:underline rounded transition" title="Ver cómo tocar ${transpuerto}">${transpuerto}</span>`;
                         }).join('');
                     }
 
-                    // Si es una línea de letra normal, la devuelve intacta sin alterar palabras como "a"
                     return linea;
                 });
 
-                document.getElementById('songLyricsContainer').innerHTML = `<pre class="font-mono whitespace-pre-wrap text-slate-100">${resultadoLineas.join('\n')}</pre>`;
+                lyricsContainer.innerHTML = `<pre class="font-mono whitespace-pre-wrap text-slate-100">${resultadoLineas.join('\n')}</pre>`;
             }
         }
     } else {
-        document.getElementById('songLyricsContainer').innerHTML = `
+        lyricsContainer.innerHTML = `
             <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 my-2">
                 <div class="flex items-center gap-2 text-indigo-400 font-semibold text-sm mb-3 uppercase tracking-wider">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -502,48 +523,287 @@ function renderizarCancionActiva() {
 }
 
 // ==========================================
-// 7. CONTROL DE ROLES Y REORDENAMIENTO
+// 6.B DICCIONARIO Y DIAGRAMA DE ACORDES
 // ==========================================
 
-function changeRole(role) {
-    currentRole = role;
-    if (window.usuarioActual) window.usuarioActual.rol = role;
+function mostrarGraficoAcorde(acorde) {
+    if (typeof currentRole !== 'undefined' && currentRole === 'cantante') return;
+
+    acordeActualModal = acorde.replace(/[\[\]]/g, '').trim();
     
-    const transposer = document.getElementById('transposerWidget');
-    const director = document.getElementById('directorControls');
-
-    if (transposer) transposer.classList.toggle('hidden', role === 'cantante');
-    if (director) director.classList.toggle('hidden', role !== 'director');
-
-    renderizarListaLiturgia();
-    renderizarCancionActiva();
+    document.getElementById('nombreAcordeModal').innerText = acordeActualModal;
+    const modal = document.getElementById('modalAcorde');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+    
+    renderizarDiagrama();
 }
 
-async function moverPosicion(index, direccion) {
-    let lista = window.listaLiturgiaActiva || [];
-    const nuevoIndex = index + direccion;
-
-    if (nuevoIndex < 0 || nuevoIndex >= lista.length) return;
-
-    const temp = lista[index];
-    lista[index] = lista[nuevoIndex];
-    lista[nuevoIndex] = temp;
-
-    window.listaLiturgiaActiva = lista;
-    renderizarListaLiturgia(lista);
-
-    try {
-        const promesasActualizacion = lista.map((item, i) => 
-            _supabase
-                .from('liturgia')
-                .update({ posicion: i + 1 })
-                .eq('id', item.id)
-        );
-        
-        await Promise.all(promesasActualizacion);
-    } catch (err) {
-        console.error("Error al guardar la nueva posición en DB:", err);
+function cerrarModalAcorde() {
+    const modal = document.getElementById('modalAcorde');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
     }
+}
+
+function cambiarPestanaInstrumento(inst) {
+    instrumentoActualModal = inst;
+    
+    ['guitarra', 'teclado', 'bajo'].forEach(i => {
+        const tab = document.getElementById(`tab${i.charAt(0).toUpperCase() + i.slice(1)}`);
+        if (tab) {
+            if (i === inst) {
+                tab.className = "pb-2 text-sm font-bold text-amber-400 border-b-2 border-amber-400 transition";
+            } else {
+                tab.className = "pb-2 text-sm font-bold text-slate-400 hover:text-white transition";
+            }
+        }
+    });
+
+    renderizarDiagrama();
+}
+
+function renderizarDiagrama() {
+    const contenedor = document.getElementById('contenedorDiagrama');
+    if (!contenedor) return;
+
+    const acordeFormateado = acordeActualModal
+        .replace(/\//g, '_')
+        .replace(/#/g, 'sharp');
+
+    const acordeURLEncoded = encodeURIComponent(acordeActualModal);
+
+    if (instrumentoActualModal === 'guitarra') {
+        contenedor.innerHTML = `
+            <img src="https://render.yousician.com/chords/guitar/${acordeURLEncoded}.svg" 
+                 onerror="renderizarFallbackAcorde('${acordeActualModal}', 'guitarra')"
+                 alt="Acorde ${acordeActualModal} para Guitarra" 
+                 class="h-44 w-auto filter invert brightness-200">
+        `;
+    } else if (instrumentoActualModal === 'teclado') {
+        contenedor.innerHTML = `
+            <img src="https://chords.pianoscales.org/images/chords/${acordeFormateado}.png" 
+                 onerror="renderizarFallbackAcorde('${acordeActualModal}', 'teclado')"
+                 alt="Acorde ${acordeActualModal} para Teclado" 
+                 class="h-32 w-auto bg-white p-2 rounded-lg">
+        `;
+    } else if (instrumentoActualModal === 'bajo') {
+        contenedor.innerHTML = `
+            <img src="https://render.yousician.com/chords/bass/${acordeURLEncoded}.svg" 
+                 onerror="renderizarFallbackAcorde('${acordeActualModal}', 'bajo')"
+                 alt="Acorde ${acordeActualModal} para Bajo" 
+                 class="h-44 w-auto filter invert brightness-200">
+        `;
+    }
+}
+
+const DIAGRAMAS_INSTRUMENTOS = {
+    guitarra: {
+        "C":    { frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
+        "C/E":  { frets: [0, 3, 2, 0, 1, 0],  fingers: [0, 3, 2, 0, 1, 0] },
+        "C#m":  { frets: [-1, 4, 6, 6, 5, 4], fingers: [0, 1, 3, 4, 2, 1] },
+        "D":    { frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2] },
+        "Dm":   { frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
+        "D/F#": { frets: [2, 0, 0, 2, 3, 2],  fingers: [1, 0, 0, 2, 4, 3] },
+        "E":    { frets: [0, 2, 2, 1, 0, 0],  fingers: [0, 2, 3, 1, 0, 0] },
+        "Em":   { frets: [0, 2, 2, 0, 0, 0],  fingers: [0, 2, 3, 0, 0, 0] },
+        "F":    { frets: [1, 3, 3, 2, 1, 1],  fingers: [1, 3, 4, 2, 1, 1] },
+        "F#m":  { frets: [2, 4, 4, 2, 2, 2],  fingers: [1, 3, 4, 1, 1, 1] },
+        "G":    { frets: [3, 2, 0, 0, 0, 3],  fingers: [2, 1, 0, 0, 0, 3] },
+        "A":    { frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0] },
+        "Am":   { frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
+        "B":    { frets: [-1, 2, 4, 4, 4, 2], fingers: [0, 1, 2, 3, 4, 1] },
+        "Bm":   { frets: [-1, 2, 4, 4, 3, 2], fingers: [0, 1, 3, 4, 2, 1] }
+    },
+    bajo: {
+        "C":    { frets: [-1, 3, 2, 0], fingers: [0, 3, 2, 0] },
+        "C/E":  { frets: [0, 3, 2, 0],  fingers: [0, 3, 2, 0] },
+        "C#m":  { frets: [-1, 4, 2, 2], fingers: [0, 3, 1, 1] },
+        "D":    { frets: [-1, 5, 4, 2], fingers: [0, 4, 3, 1] },
+        "Dm":   { frets: [-1, 5, 3, 2], fingers: [0, 4, 2, 1] },
+        "D/F#": { frets: [2, 0, 0, 2],  fingers: [1, 0, 0, 2] },
+        "E":    { frets: [0, 2, 2, 1],  fingers: [0, 2, 3, 1] },
+        "Em":   { frets: [0, 2, 2, 0],  fingers: [0, 2, 3, 0] },
+        "F":    { frets: [1, 3, 3, 2],  fingers: [1, 3, 4, 2] },
+        "F#m":  { frets: [2, 4, 4, 2],  fingers: [1, 3, 4, 1] },
+        "G":    { frets: [3, 2, 0, 0],  fingers: [2, 1, 0, 0] },
+        "A":    { frets: [-1, 0, 2, 2], fingers: [0, 0, 1, 2] },
+        "Am":   { frets: [-1, 0, 2, 2], fingers: [0, 0, 2, 3] },
+        "B":    { frets: [-1, 2, 4, 4], fingers: [0, 1, 3, 4] },
+        "Bm":   { frets: [-1, 2, 4, 4], fingers: [0, 1, 3, 4] }
+    },
+    teclado: {
+        "C":    { keys: [0, 4, 7], bassKey: null },
+        "C/E":  { keys: [0, 4, 7], bassKey: 4 },
+        "C#m":  { keys: [1, 4, 8], bassKey: null },
+        "D":    { keys: [2, 6, 9], bassKey: null },
+        "Dm":   { keys: [2, 5, 9], bassKey: null },
+        "D/F#": { keys: [2, 6, 9], bassKey: 6 },
+        "E":    { keys: [4, 8, 11], bassKey: null },
+        "Em":   { keys: [4, 7, 11], bassKey: null },
+        "F":    { keys: [5, 9, 0], bassKey: null },
+        "F#m":  { keys: [6, 9, 1], bassKey: null },
+        "G":    { keys: [7, 11, 2], bassKey: null },
+        "A":    { keys: [9, 1, 4], bassKey: null },
+        "Am":   { keys: [9, 0, 4], bassKey: null },
+        "B":    { keys: [11, 3, 6], bassKey: null },
+        "Bm":   { keys: [11, 2, 6], bassKey: null }
+    }
+};
+
+function renderizarFallbackAcorde(acorde, instrumento) {
+    const contenedor = document.getElementById('contenedorDiagrama');
+    if (!contenedor) return;
+
+    const instKey = instrumento.toLowerCase();
+
+    if (instKey === 'teclado') {
+        const datosTeclado = DIAGRAMAS_INSTRUMENTOS.teclado?.[acorde] || obtenerTeclasCalculadas(acorde);
+        const svgTeclado = crearSVGTeclado(datosTeclado.keys, datosTeclado.bassKey);
+
+        contenedor.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-2">
+                <h3 class="text-xl font-black text-amber-400 mb-2">${acorde}</h3>
+                ${svgTeclado}
+                <span class="mt-3 text-[10px] uppercase font-bold text-indigo-300 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800">
+                    Teclado / Piano
+                </span>
+            </div>
+        `;
+        return;
+    }
+
+    const datosAcorde = DIAGRAMAS_INSTRUMENTOS[instKey]?.[acorde];
+
+    if (!datosAcorde) {
+        contenedor.innerHTML = `
+            <div class="text-center p-4">
+                <p class="text-amber-400 font-bold text-lg mb-1">${acorde}</p>
+                <p class="text-xs text-slate-300">Diagrama gráfico en desarrollo para este acorde.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const svgHTML = crearSVGDiagrama(datosAcorde.frets, datosAcorde.fingers, instKey === 'bajo' ? 4 : 6);
+
+    contenedor.innerHTML = `
+        <div class="flex flex-col items-center justify-center p-2">
+            <h3 class="text-xl font-black text-amber-400 mb-1">${acorde}</h3>
+            ${svgHTML}
+            <span class="mt-2 text-[10px] uppercase font-bold text-indigo-300 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800">
+                ${instrumento} (${instKey === 'bajo' ? '4 Cuerdas' : '6 Cuerdas'})
+            </span>
+        </div>
+    `;
+}
+
+function crearSVGDiagrama(frets, fingers, numCuerdas = 6) {
+    const width = 180;
+    const height = 200;
+    const startX = 35;
+    const startY = 35;
+    const gridWidth = 110;
+    const gridHeight = 120;
+    const numTrastes = 4;
+
+    const stringSpacing = gridWidth / (numCuerdas - 1);
+    const fretSpacing = gridHeight / numTrastes;
+
+    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="mx-auto">`;
+
+    svg += `<rect x="${startX}" y="${startY - 4}" width="${gridWidth}" height="5" fill="#ffffff" rx="1" />`;
+
+    for (let i = 0; i <= numTrastes; i++) {
+        const y = startY + (i * fretSpacing);
+        svg += `<line x1="${startX}" y1="${y}" x2="${startX + gridWidth}" y2="${y}" stroke="#64748b" stroke-width="1.5" />`;
+    }
+
+    for (let i = 0; i < numCuerdas; i++) {
+        const x = startX + (i * stringSpacing);
+        svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + gridHeight}" stroke="#94a3b8" stroke-width="1.5" />`;
+    }
+
+    frets.forEach((fret, stringIdx) => {
+        const x = startX + (stringIdx * stringSpacing);
+
+        if (fret === -1) {
+            svg += `<text x="${x}" y="${startY - 10}" fill="#ef4444" font-size="12" font-weight="bold" text-anchor="middle">✕</text>`;
+        } else if (fret === 0) {
+            svg += `<circle cx="${x}" cy="${startY - 12}" r="4.5" fill="none" stroke="#ffffff" stroke-width="1.5" />`;
+        } else {
+            const y = startY + (fret * fretSpacing) - (fretSpacing / 2);
+            const finger = fingers[stringIdx] || '';
+
+            svg += `<circle cx="${x}" cy="${y}" r="8" fill="#10b981" stroke="#ffffff" stroke-width="1.5" />`;
+            if (finger > 0) {
+                svg += `<text x="${x}" y="${y + 3.5}" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">${finger}</text>`;
+            }
+        }
+    });
+
+    svg += `</svg>`;
+    return svg;
+}
+
+function crearSVGTeclado(activeKeys = [], bassKey = null) {
+    const width = 220;
+    const height = 110;
+    
+    const whiteKeys = [
+        { note: 0 }, { note: 2 }, { note: 4 }, { note: 5 }, { note: 7 }, { note: 9 }, { note: 11 }
+    ];
+
+    const blackKeys = [
+        { note: 1, posIndex: 0 },
+        { note: 3, posIndex: 1 },
+        { note: 6, posIndex: 3 },
+        { note: 8, posIndex: 4 },
+        { note: 10, posIndex: 5 }
+    ];
+
+    const keyWidth = 28;
+    const keyHeight = 90;
+    const blackWidth = 16;
+    const blackHeight = 55;
+    const startX = 12;
+    const startY = 10;
+
+    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="mx-auto">`;
+
+    whiteKeys.forEach((k, idx) => {
+        const x = startX + (idx * keyWidth);
+        const isActive = activeKeys.includes(k.note);
+        const isBass = bassKey === k.note;
+
+        let fillColor = "#ffffff";
+        if (isBass) fillColor = "#f59e0b";
+        else if (isActive) fillColor = "#10b981";
+
+        svg += `<rect x="${x}" y="${startY}" width="${keyWidth - 1}" height="${keyHeight}" fill="${fillColor}" stroke="#334155" stroke-width="1.5" rx="3" />`;
+        
+        if (isActive || isBass) {
+            svg += `<circle cx="${x + (keyWidth / 2) - 0.5}" cy="${startY + keyHeight - 15}" r="3.5" fill="#0f172a" />`;
+        }
+    });
+
+    blackKeys.forEach(k => {
+        const x = startX + (k.posIndex * keyWidth) + (keyWidth - (blackWidth / 2));
+        const isActive = activeKeys.includes(k.note);
+        const isBass = bassKey === k.note;
+
+        let fillColor = "#1e293b";
+        if (isBass) fillColor = "#f59e0b";
+        else if (isActive) fillColor = "#10b981";
+
+        svg += `<rect x="${x}" y="${startY}" width="${blackWidth}" height="${blackHeight}" fill="${fillColor}" stroke="#0f172a" stroke-width="1.5" rx="2" />`;
+    });
+
+    svg += `</svg>`;
+    return svg;
 }
 
 // ==========================================
@@ -857,7 +1117,8 @@ function renderizarListaLiturgia(lista) {
 // ==========================================
 
 function transpose(delta) {
-    const cancion = window.listaLiturgiaActiva.find(c => c.id === activeSongId) || cancionesDB.find(c => c.id === activeSongId);
+    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
+                 || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
     if (!cancion) return;
 
     const esCancion = cancion.tipo === 'cancion' || (cancion.tono_original && cancion.tono_original !== '-');
@@ -868,7 +1129,8 @@ function transpose(delta) {
 }
 
 async function guardarTransporteActual() {
-    const cancion = window.listaLiturgiaActiva.find(c => c.id === activeSongId) || cancionesDB.find(c => c.id === activeSongId);
+    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
+                 || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
     
     if (!cancion || currentOffset === 0) return;
 
@@ -1142,7 +1404,7 @@ function filtrarBibliotecaCantos() {
 }
 
 // ==========================================
-// 12. INICIALIZACIÓN
+// 12. INICIALIZACIÓN Y PRESENCIA EN TIEMPO REAL
 // ==========================================
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -1172,7 +1434,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 async function inicializarPresenciaEnLinea() {
     if (!window.usuarioActual) return;
 
-    // 1. Limpiar canal previo si existía para evitar duplicados
     if (presenceChannel) {
         try {
             await presenceChannel.unsubscribe();
@@ -1182,10 +1443,8 @@ async function inicializarPresenciaEnLinea() {
         presenceChannel = null;
     }
 
-    // 2. Generar Key única por pestaña/sesión
     const sessionKey = `${window.usuarioActual.id}_${Math.random().toString(36).substring(2, 7)}`;
 
-    // 3. Crear el canal
     presenceChannel = _supabase.channel('usuarios_en_linea', {
         config: {
             presence: {
@@ -1194,13 +1453,11 @@ async function inicializarPresenciaEnLinea() {
         }
     });
 
-    // 4. Sincronización en tiempo real
     presenceChannel
         .on('presence', { event: 'sync' }, () => {
             const state = presenceChannel.presenceState();
             usuariosConectados = [];
 
-            // Extraer todos los usuarios conectados
             for (const key in state) {
                 if (Array.isArray(state[key])) {
                     state[key].forEach(u => usuariosConectados.push(u));
@@ -1209,144 +1466,77 @@ async function inicializarPresenciaEnLinea() {
 
             console.log("🟢 Usuarios en línea actualizados:", usuariosConectados);
 
-            // Si el usuario actual es director, renderizar la lista
-            if (window.usuarioActual.rol === 'director') {
+            const rolActivo = typeof currentRole !== 'undefined' ? currentRole : window.usuarioActual.rol;
+            if (rolActivo === 'director') {
                 renderizarUsuariosEnLinea();
             }
         })
         .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
-                // Enviar la presencia con el total de ingresos guardado
                 await presenceChannel.track({
                     id: window.usuarioActual.id,
                     nombre: window.usuarioActual.nombre || 'Usuario',
                     email: window.usuarioActual.email,
                     rol: window.usuarioActual.rol,
-                    totalIngresos: window.usuarioActual.totalIngresos || 1, // 👈 Se transmite el conteo
+                    totalIngresos: window.usuarioActual.totalIngresos || 1,
                     onlineAt: new Date().toISOString()
                 });
             }
         });
 }
-
-    // 4. Sincronización en tiempo real
-    presenceChannel
-        .on('presence', { event: 'sync' }, () => {
-            const state = presenceChannel.presenceState();
-            usuariosConectados = [];
-
-            // Extraer todos los usuarios conectados
-            for (const key in state) {
-                if (Array.isArray(state[key])) {
-                    state[key].forEach(u => usuariosConectados.push(u));
-                }
-            }
-
-            console.log("🟢 Usuarios en línea actualizados:", usuariosConectados);
-
-            // Si el usuario actual es director, renderizar la lista
-            if (window.usuarioActual.rol === 'director') {
-                renderizarUsuariosEnLinea();
-            }
-        })
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                // Enviar la presencia con el total de ingresos guardado
-                await presenceChannel.track({
-                    id: window.usuarioActual.id,
-                    nombre: window.usuarioActual.nombre || 'Usuario',
-                    email: window.usuarioActual.email,
-                    rol: window.usuarioActual.rol,
-                    totalIngresos: window.usuarioActual.totalIngresos || 1, // 👈 Se transmite el conteo
-                    onlineAt: new Date().toISOString()
-                });
-            }
-        });
-
-
-    // 4. Escuchar eventos de sincronización (Conexiones y Desconexiones)
-    presenceChannel
-        .on('presence', { event: 'sync' }, () => {
-            const state = presenceChannel.presenceState();
-            usuariosConectados = [];
-
-            // Recorrer de forma exhaustiva todos los clientes en linea
-            for (const key in state) {
-                if (Array.isArray(state[key])) {
-                    state[key].forEach(u => usuariosConectados.push(u));
-                }
-            }
-
-            console.log("🟢 Usuarios en línea actualizados:", usuariosConectados);
-
-            // Si el rol activo en pantalla es Director, actualizar la lista del DOM
-            // (Comprobamos tanto currentRole como window.usuarioActual.rol para evitar fallos de scope)
-            const rolActivo = typeof currentRole !== 'undefined' ? currentRole : window.usuarioActual.rol;
-            
-            if (rolActivo === 'director') {
-                if (typeof renderizarUsuariosEnLinea === 'function') {
-                    renderizarUsuariosEnLinea();
-                } else if (typeof renderizarUsuariosActivos === 'function') {
-                    renderizarUsuariosActivos(); // Fallback por si tu función tiene otro nombre
-                }
-            }
-        })
-        .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                // Enviar la presencia de esta sesión activa
-                await presenceChannel.track({
-                    id: window.usuarioActual.id,
-                    nombre: window.usuarioActual.nombre || 'Usuario',
-                    email: window.usuarioActual.email,
-                    rol: window.usuarioActual.rol,
-                    onlineAt: new Date().toISOString()
-                });
-            }
-        });
-
 
 function renderizarUsuariosEnLinea() {
     const contenedor = document.getElementById('listaUsuariosEnLinea');
     if (!contenedor) return;
 
-    if (!usuariosConectados || usuariosConectados.length === 0) {
-        contenedor.innerHTML = `<p class="text-xs text-slate-400 italic">No hay otros usuarios conectados...</p>`;
+    const listaMostrar = (window.usuariosDB && window.usuariosDB.length > 0) 
+        ? window.usuariosDB 
+        : usuariosConectados;
+
+    if (!listaMostrar || listaMostrar.length === 0) {
+        contenedor.innerHTML = `<p class="text-xs text-slate-400 italic">No hay usuarios en línea...</p>`;
         return;
     }
 
-    // Filtrar por ID de usuario único para no duplicar si el mismo usuario tiene 2 pestañas abiertas
-    const usuariosUnicosMap = new Map();
-    usuariosConectados.forEach(u => {
-        if (!usuariosUnicosMap.has(u.id)) {
-            usuariosUnicosMap.set(u.id, u);
+    const idsConectados = new Set((usuariosConectados || []).map(u => u.id));
+
+    const usuariosOrdenados = [...listaMostrar].sort((a, b) => {
+        const aConectado = idsConectados.has(a.id);
+        const bConectado = idsConectados.has(b.id);
+
+        if (aConectado === bConectado) {
+            return (a.nombre || a.email || '').localeCompare(b.nombre || b.email || '');
         }
+        return bConectado - aConectado;
     });
 
-    const listaUnica = Array.from(usuariosUnicosMap.values());
+    contenedor.innerHTML = usuariosOrdenados.map(u => {
+        const estaEnLinea = idsConectados.has(u.id);
 
-    contenedor.innerHTML = listaUnica.map(u => `
-        <div class="flex items-center justify-between py-1 px-2 hover:bg-slate-50 rounded-lg transition text-xs">
-            <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-sm"></span>
-                <span class="font-medium text-slate-700">${u.nombre || u.email}</span>
+        const colorPunto = estaEnLinea ? 'bg-emerald-500 shadow-sm' : 'bg-slate-300';
+        const colorTexto = estaEnLinea ? 'font-medium text-slate-700' : 'text-slate-400';
+
+        return `
+            <div class="flex items-center justify-between py-1 px-2 hover:bg-slate-50 rounded-lg transition text-xs">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full ${colorPunto} flex-shrink-0"></span>
+                    <span class="${colorTexto}">${u.nombre || u.email}</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                    <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold px-1.5 py-0.5 rounded-md" title="Total de ingresos al portal">
+                        ${u.totalIngresos || u.accesos || 1} accesos
+                    </span>
+                    <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
+                        ${u.rol || 'MIEMBRO'}
+                    </span>
+                </div>
             </div>
-            <div class="flex items-center gap-1.5">
-                <!-- Badge de Contador de Accesos -->
-                <span class="bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] font-bold px-1.5 py-0.5 rounded-md" title="Total de ingresos al portal">
-                    ${u.totalIngresos || 1} accesos
-                </span>
-                <!-- Badge de Rol -->
-                <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase">
-                    ${u.rol}
-                </span>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 async function registrarIngresoUsuario(userId) {
     try {
-        // 1. Obtener el conteo actual
         const { data: perfil, error: errSelect } = await _supabase
             .from('perfiles')
             .select('total_ingresos')
@@ -1357,7 +1547,6 @@ async function registrarIngresoUsuario(userId) {
 
         const nuevoConteo = (perfil.total_ingresos || 0) + 1;
 
-        // 2. Actualizar el contador en la tabla
         const { error: errUpdate } = await _supabase
             .from('perfiles')
             .update({ total_ingresos: nuevoConteo })
@@ -1374,10 +1563,13 @@ async function registrarIngresoUsuario(userId) {
     }
 }
 
+// ==========================================
+// 13. EXPORTACIÓN DE DOCUMENTOS (PDF)
+// ==========================================
+
 function exportarCancionPDF() {
-    // 1. Obtener el contenedor principal y el título
     const contenedorOriginal = document.getElementById('contenedorExportablePDF') 
-                             || document.querySelector('main section:last-child');
+                               || document.querySelector('main section:last-child');
     const tituloElemento = document.getElementById('songTitle');
     const tituloCancion = tituloElemento ? tituloElemento.innerText.trim() : 'Alabanza';
 
@@ -1386,55 +1578,51 @@ function exportarCancionPDF() {
         return;
     }
 
-    // 2. Clonar el contenedor para modificarlo sin alterar la pantalla visual
     const clon = contenedorOriginal.cloneNode(true);
 
-    // Ocultar botones e interactivos
-    const elementosAOcultar = clon.querySelectorAll('#transposerWidget, #btnExportarPDF, #btnGuardarTono, button');
+    const elementosAOcultar = clon.querySelectorAll('#transposerWidget, #btnExportarPDF, #btnGuardarTono, #accionesPDF, button');
     elementosAOcultar.forEach(el => el.remove());
 
-    // 3. Forzar fondo blanco en el clon y en todos sus contenedores
     clon.style.backgroundColor = '#ffffff';
     clon.style.color = '#000000';
-    clon.style.padding = '10px';
+    clon.style.padding = '12px';
+    clon.style.width = '100%';
+    clon.style.boxSizing = 'border-box';
 
     const lyricsContainer = clon.querySelector('#songLyricsContainer');
     if (lyricsContainer) {
         lyricsContainer.style.backgroundColor = '#ffffff';
         lyricsContainer.style.color = '#000000';
         lyricsContainer.style.border = '1px solid #cbd5e1';
-        lyricsContainer.style.boxShadow = 'none';
-        lyricsContainer.style.fontSize = '11px'; // Reducimos tamaño para asegurar 1 página
-        lyricsContainer.style.lineHeight = '1.3';
+        lyricsContainer.style.borderRadius = '8px';
+        lyricsContainer.style.padding = '12px';
+        lyricsContainer.style.fontSize = '10.5pt'; 
+        lyricsContainer.style.lineHeight = '1.35';
+        lyricsContainer.style.fontFamily = 'monospace, Courier, sans-serif'; 
+        lyricsContainer.style.whiteSpace = 'pre-wrap';
     }
 
-    // 4. FORZAR A TODOS LOS ELEMENTOS HIJOS A TENER TEXTO OSCURO
-    // Esto sobrescribe cualquier clase de Tailwind como text-slate-400, text-white, etc.
     const todosLosElementos = clon.querySelectorAll('*');
     todosLosElementos.forEach(el => {
-        // Remover clases de color de texto de Tailwind si existen
         el.className = el.className.replace(/text-[a-z0-9-]+/g, '');
 
-        // Si es un acorde o etiqueta importante, le damos tono destacado
         if (el.tagName === 'SPAN' && (el.innerText.trim().length <= 4 || el.classList.contains('chord'))) {
-            el.style.color = '#1e3a8a'; // Azul oscuro elegante para acordes (o '#000000' si prefieres todo negro)
+            el.style.color = '#1e3a8a'; 
             el.style.fontWeight = 'bold';
         } else {
-            el.style.color = '#000000'; // Negro puro para letras, títulos y subtítulos
+            el.style.color = '#0f172a'; 
         }
     });
 
-    // 5. Configuración del PDF (Forzando 1 sola hoja Carta)
     const opciones = {
-        margin:       [8, 8, 8, 8], // Márgenes estrechos en mm [arriba, izquierda, abajo, derecha]
-        filename:     `${tituloCancion.replace(/[^a-zA-Z0-9_-]/g, '_')}_Acordes.pdf`,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, logging: false },
-        jsPDF:        { unit: 'mm', format: 'letter', orientation: 'portrait' },
-        pagebreak:    { mode: 'avoid-all' }
+        margin:        [8, 8, 8, 8],
+        filename:      `${tituloCancion.replace(/[^a-zA-Z0-9_-]/g, '_')}_Acordes.pdf`,
+        image:         { type: 'jpeg', quality: 0.98 },
+        html2canvas:   { scale: 2, useCORS: true, logging: false },
+        jsPDF:         { unit: 'mm', format: 'letter', orientation: 'portrait' },
+        pagebreak:     { mode: ['avoid-all', 'css', 'legacy'] }
     };
 
-    // Feedback visual en el botón
     const btnPDF = document.getElementById('btnExportarPDF');
     const textoOriginal = btnPDF ? btnPDF.innerHTML : '';
     if (btnPDF) {
@@ -1442,7 +1630,6 @@ function exportarCancionPDF() {
         btnPDF.disabled = true;
     }
 
-    // 6. Descargar PDF
     html2pdf().set(opciones).from(clon).save().then(() => {
         if (btnPDF) {
             btnPDF.innerHTML = textoOriginal;
@@ -1465,14 +1652,11 @@ function exportarBibliotecaPDF() {
 
     if (!contenedorOriginal) return;
 
-    // Clonar contenedor de la biblioteca
     const clon = contenedorOriginal.cloneNode(true);
 
-    // Ocultar botones dentro del clon
     const botones = clon.querySelectorAll('button');
     botones.forEach(b => b.remove());
 
-    // Estilos claros
     clon.style.backgroundColor = '#ffffff';
     clon.style.color = '#000000';
     clon.style.padding = '15px';
@@ -1494,4 +1678,20 @@ function exportarBibliotecaPDF() {
     };
 
     html2pdf().set(opciones).from(clon).save();
+}
+
+function obtenerTeclasCalculadas(acorde) {
+    const NOTAS_MAP = { "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11 };
+    
+    let [base, bajo] = acorde.split('/');
+    let t = base.replace('m', '');
+    let root = NOTAS_MAP[t] !== undefined ? NOTAS_MAP[t] : 0;
+    
+    let esMenor = base.includes('m') && !base.includes('maj');
+    let tercera = (root + (esMenor ? 3 : 4)) % 12;
+    let quinta = (root + 7) % 12;
+    
+    let bassKey = bajo && NOTAS_MAP[bajo] !== undefined ? NOTAS_MAP[bajo] : null;
+
+    return { keys: [root, tercera, quinta], bassKey: bassKey };
 }
