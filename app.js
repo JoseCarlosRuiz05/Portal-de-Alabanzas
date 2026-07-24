@@ -33,6 +33,13 @@ const REGEX_ACORDE_MATCH = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|
 // Estilo auxiliar inline para evitar la selección nativa en móviles
 const STYLES_CHORD_MOBILE = `user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation;`;
 
+// MAPEO DE NOTAS A ÍNDICES CROMÁTICOS (0-11)
+const NOTAS_MAP = { 
+    "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, 
+    "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, 
+    "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11 
+};
+
 // ==========================================
 // 3. AUTENTICACIÓN Y CONTROL DE ACCESO
 // ==========================================
@@ -284,14 +291,27 @@ async function cargarLiturgiaDelDia() {
     }
 }
 
+// Variable global fuera de la función para rastrear el canal activo
+let canalLiturgia = null;
+
 function suscribirACambiosLiturgia() {
-    _supabase
+    // 1. Si ya existe un canal previo, lo removemos para evitar duplicar eventos
+    if (canalLiturgia) {
+        _supabase.removeChannel(canalLiturgia);
+    }
+
+    // 2. Creamos y asignamos la nueva suscripción
+    canalLiturgia = _supabase
         .channel('liturgia_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'liturgia' }, () => {
             console.log("⚡ Cambio detectado en la liturgia, actualizando...");
             cargarLiturgiaDelDia();
         })
-        .subscribe();
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log("🟢 Conectado exitosamente a cambios en tiempo real (Liturgia)");
+            }
+        });
 }
 
 async function obtenerRepertorioGlobal() {
@@ -473,7 +493,7 @@ function renderizarCancionActiva() {
             lyricsContainer.innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasSoloLetra.join('\n')}</pre>`;
 
         } else {
-            // MODO MÚSICO / DIRECTOR: Acordes interactivos (clickeables) protegidos contra selección móvil
+            // MODO MÚSICO / DIRECTOR: Acordes interactivos
             if (textoFinal.includes('[') && textoFinal.includes(']')) {
                 textoFinal = textoFinal.replace(/\[(.*?)\]/g, (match, chord) => {
                     const transpuerto = typeof transposeChord === 'function' ? transposeChord(chord, offsetActual) : chord;
@@ -534,7 +554,9 @@ function mostrarGraficoAcorde(acorde) {
 
     acordeActualModal = acorde.replace(/[\[\]]/g, '').trim();
     
-    document.getElementById('nombreAcordeModal').innerText = acordeActualModal;
+    const elemNombre = document.getElementById('nombreAcordeModal');
+    if (elemNombre) elemNombre.innerText = acordeActualModal;
+    
     const modal = document.getElementById('modalAcorde');
     if (modal) {
         modal.classList.remove('hidden');
@@ -573,10 +595,7 @@ function renderizarDiagrama() {
     const contenedor = document.getElementById('contenedorDiagrama');
     if (!contenedor) return;
 
-    const acordeFormateado = acordeActualModal
-        .replace(/\//g, '_')
-        .replace(/#/g, 'sharp');
-
+    const acordeFormateado = acordeActualModal.replace(/\//g, '_').replace(/#/g, 'sharp');
     const acordeURLEncoded = encodeURIComponent(acordeActualModal);
 
     if (instrumentoActualModal === 'guitarra') {
@@ -587,12 +606,7 @@ function renderizarDiagrama() {
                  class="h-44 w-auto filter invert brightness-200">
         `;
     } else if (instrumentoActualModal === 'teclado') {
-        contenedor.innerHTML = `
-            <img src="https://chords.pianoscales.org/images/chords/${acordeFormateado}.png" 
-                 onerror="renderizarFallbackAcorde('${acordeActualModal}', 'teclado')"
-                 alt="Acorde ${acordeActualModal} para Teclado" 
-                 class="h-32 w-auto bg-white p-2 rounded-lg">
-        `;
+        renderizarFallbackAcorde(acordeActualModal, 'teclado');
     } else if (instrumentoActualModal === 'bajo') {
         contenedor.innerHTML = `
             <img src="https://render.yousician.com/chords/bass/${acordeURLEncoded}.svg" 
@@ -603,57 +617,189 @@ function renderizarDiagrama() {
     }
 }
 
+// ==========================================
+// DICCIONARIO COMPLETO DE DIAGRAMAS DE ACORDES
+// ==========================================
 const DIAGRAMAS_INSTRUMENTOS = {
     guitarra: {
-        "C":    { frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
-        "C/E":  { frets: [0, 3, 2, 0, 1, 0],  fingers: [0, 3, 2, 0, 1, 0] },
-        "C#m":  { frets: [-1, 4, 6, 6, 5, 4], fingers: [0, 1, 3, 4, 2, 1] },
-        "D":    { frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2] },
-        "Dm":   { frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
-        "D/F#": { frets: [2, 0, 0, 2, 3, 2],  fingers: [1, 0, 0, 2, 4, 3] },
-        "E":    { frets: [0, 2, 2, 1, 0, 0],  fingers: [0, 2, 3, 1, 0, 0] },
-        "Em":   { frets: [0, 2, 2, 0, 0, 0],  fingers: [0, 2, 3, 0, 0, 0] },
-        "F":    { frets: [1, 3, 3, 2, 1, 1],  fingers: [1, 3, 4, 2, 1, 1] },
-        "F#m":  { frets: [2, 4, 4, 2, 2, 2],  fingers: [1, 3, 4, 1, 1, 1] },
-        "G":    { frets: [3, 2, 0, 0, 0, 3],  fingers: [2, 1, 0, 0, 0, 3] },
-        "A":    { frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0] },
-        "Am":   { frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
-        "B":    { frets: [-1, 2, 4, 4, 4, 2], fingers: [0, 1, 2, 3, 4, 1] },
-        "Bm":   { frets: [-1, 2, 4, 4, 3, 2], fingers: [0, 1, 3, 4, 2, 1] }
+        // --- DO (C) ---
+        "C":      { frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
+        "Cm":     { frets: [-1, 3, 5, 5, 4, 3], fingers: [0, 1, 3, 4, 2, 1] },
+        "C7":     { frets: [-1, 3, 2, 3, 1, 0], fingers: [0, 3, 2, 4, 1, 0] },
+        "Cmaj7":  { frets: [-1, 3, 2, 0, 0, 0], fingers: [0, 3, 2, 0, 0, 0] },
+        "Csus2":  { frets: [-1, 3, 0, 0, 1, 0], fingers: [0, 3, 0, 0, 1, 0] },
+        "Csus4":  { frets: [-1, 3, 3, 0, 1, 1], fingers: [0, 3, 4, 0, 1, 1] },
+        "C/E":    { frets: [0, 3, 2, 0, 1, 0],  fingers: [0, 3, 2, 0, 1, 0] },
+
+        // --- DO# / REb (C# / Db) ---
+        "C#":     { frets: [-1, 4, 6, 6, 6, 4], fingers: [0, 1, 2, 3, 4, 1] },
+        "C#m":    { frets: [-1, 4, 6, 6, 5, 4], fingers: [0, 1, 3, 4, 2, 1] },
+        "C#7":    { frets: [-1, 4, 6, 4, 6, 4], fingers: [0, 1, 3, 1, 4, 1] },
+        "C#sus2": { frets: [-1, 4, 6, 6, 4, 4], fingers: [0, 1, 3, 4, 1, 1] },
+        "C#sus4": { frets: [-1, 4, 6, 6, 7, 4], fingers: [0, 1, 2, 3, 4, 1] },
+
+        // --- RE (D) ---
+        "D":      { frets: [-1, -1, 0, 2, 3, 2], fingers: [0, 0, 0, 1, 3, 2] },
+        "Dm":     { frets: [-1, -1, 0, 2, 3, 1], fingers: [0, 0, 0, 2, 3, 1] },
+        "D7":     { frets: [-1, -1, 0, 2, 1, 2], fingers: [0, 0, 0, 2, 1, 3] },
+        "Dmaj7":  { frets: [-1, -1, 0, 2, 2, 2], fingers: [0, 0, 0, 1, 2, 3] },
+        "Dsus2":  { frets: [-1, -1, 0, 2, 3, 0], fingers: [0, 0, 0, 1, 3, 0] },
+        "Dsus4":  { frets: [-1, -1, 0, 2, 3, 3], fingers: [0, 0, 0, 1, 2, 3] },
+        "D/F#":   { frets: [2, 0, 0, 2, 3, 2],  fingers: [1, 0, 0, 2, 4, 3] },
+
+        // --- RE# / MIb (D# / Eb) ---
+        "D#":     { frets: [-1, 6, 8, 8, 8, 6], fingers: [0, 1, 2, 3, 4, 1] },
+        "D#m":    { frets: [-1, 6, 8, 8, 7, 6], fingers: [0, 1, 3, 4, 2, 1] },
+        "Eb":     { frets: [-1, 6, 8, 8, 8, 6], fingers: [0, 1, 2, 3, 4, 1] },
+        "Ebm":    { frets: [-1, 6, 8, 8, 7, 6], fingers: [0, 1, 3, 4, 2, 1] },
+
+        // --- MI (E) ---
+        "E":      { frets: [0, 2, 2, 1, 0, 0],  fingers: [0, 2, 3, 1, 0, 0] },
+        "Em":     { frets: [0, 2, 2, 0, 0, 0],  fingers: [0, 2, 3, 0, 0, 0] },
+        "E7":     { frets: [0, 2, 0, 1, 0, 0],  fingers: [0, 2, 0, 1, 0, 0] },
+        "Emaj7":  { frets: [0, 2, 1, 1, 0, 0],  fingers: [0, 3, 1, 2, 0, 0] },
+        "Esus4":  { frets: [0, 2, 2, 2, 0, 0],  fingers: [0, 1, 2, 3, 0, 0] },
+
+        // --- FA (F) ---
+        "F":      { frets: [1, 3, 3, 2, 1, 1],  fingers: [1, 3, 4, 2, 1, 1] },
+        "Fm":     { frets: [1, 3, 3, 1, 1, 1],  fingers: [1, 3, 4, 1, 1, 1] },
+        "F7":     { frets: [1, 3, 1, 2, 1, 1],  fingers: [1, 3, 1, 2, 1, 1] },
+        "Fsus4":  { frets: [1, 3, 3, 3, 1, 1],  fingers: [1, 2, 3, 4, 1, 1] },
+
+        // --- FA# / SOLb (F# / Gb) ---
+        "F#":     { frets: [2, 4, 4, 3, 2, 2],  fingers: [1, 3, 4, 2, 1, 1] },
+        "F#m":    { frets: [2, 4, 4, 2, 2, 2],  fingers: [1, 3, 4, 1, 1, 1] },
+        "F#7":    { frets: [2, 4, 2, 3, 2, 2],  fingers: [1, 3, 1, 2, 1, 1] },
+
+        // --- SOL (G) ---
+        "G":      { frets: [3, 2, 0, 0, 0, 3],  fingers: [2, 1, 0, 0, 0, 3] },
+        "Gm":     { frets: [3, 5, 5, 3, 3, 3],  fingers: [1, 3, 4, 1, 1, 1] },
+        "G7":     { frets: [3, 2, 0, 0, 0, 1],  fingers: [3, 2, 0, 0, 0, 1] },
+        "Gsus4":  { frets: [3, 3, 0, 0, 1, 3],  fingers: [3, 4, 0, 0, 1, 2] },
+        "G/B":    { frets: [-1, 2, 0, 0, 0, 3], fingers: [0, 1, 0, 0, 0, 3] },
+
+        // --- SOL# / LAb (G# / Ab) ---
+        "G#":     { frets: [4, 6, 6, 5, 4, 4],  fingers: [1, 3, 4, 2, 1, 1] },
+        "G#m":    { frets: [4, 6, 6, 4, 4, 4],  fingers: [1, 3, 4, 1, 1, 1] },
+        "Ab":     { frets: [4, 6, 6, 5, 4, 4],  fingers: [1, 3, 4, 2, 1, 1] },
+
+        // --- LA (A) ---
+        "A":      { frets: [-1, 0, 2, 2, 2, 0], fingers: [0, 0, 1, 2, 3, 0] },
+        "Am":     { frets: [-1, 0, 2, 2, 1, 0], fingers: [0, 0, 2, 3, 1, 0] },
+        "A7":     { frets: [-1, 0, 2, 0, 2, 0], fingers: [0, 0, 1, 0, 2, 0] },
+        "Amaj7":  { frets: [-1, 0, 2, 1, 2, 0], fingers: [0, 0, 2, 1, 3, 0] },
+        "Asus2":  { frets: [-1, 0, 2, 2, 0, 0], fingers: [0, 0, 1, 2, 0, 0] },
+        "Asus4":  { frets: [-1, 0, 2, 2, 3, 0], fingers: [0, 0, 1, 2, 3, 0] },
+        "A/C#":   { frets: [-1, 4, 2, 2, 2, 0], fingers: [0, 4, 1, 2, 3, 0] },
+
+        // --- LA# / SIb (A# / Bb) ---
+        "A#":     { frets: [-1, 1, 3, 3, 3, 1], fingers: [0, 1, 2, 3, 4, 1] },
+        "A#m":    { frets: [-1, 1, 3, 3, 2, 1], fingers: [0, 1, 3, 4, 2, 1] },
+        "Bb":     { frets: [-1, 1, 3, 3, 3, 1], fingers: [0, 1, 2, 3, 4, 1] },
+        "Bbm":    { frets: [-1, 1, 3, 3, 2, 1], fingers: [0, 1, 3, 4, 2, 1] },
+
+        // --- SI (B) ---
+        "B":      { frets: [-1, 2, 4, 4, 4, 2], fingers: [0, 1, 2, 3, 4, 1] },
+        "Bm":     { frets: [-1, 2, 4, 4, 3, 2], fingers: [0, 1, 3, 4, 2, 1] },
+        "B7":     { frets: [-1, 2, 1, 2, 0, 2], fingers: [0, 2, 1, 3, 0, 4] },
+        "Bsus2":  { frets: [-1, 2, 4, 4, 2, 2], fingers: [0, 1, 3, 4, 1, 1] },
+        "Bsus4":  { frets: [-1, 2, 4, 4, 5, 2], fingers: [0, 1, 2, 3, 4, 1] }
     },
+
     bajo: {
-        "C":    { frets: [-1, 3, 2, 0], fingers: [0, 3, 2, 0] },
-        "C/E":  { frets: [0, 3, 2, 0],  fingers: [0, 3, 2, 0] },
-        "C#m":  { frets: [-1, 4, 2, 2], fingers: [0, 3, 1, 1] },
-        "D":    { frets: [-1, 5, 4, 2], fingers: [0, 4, 3, 1] },
-        "Dm":   { frets: [-1, 5, 3, 2], fingers: [0, 4, 2, 1] },
-        "D/F#": { frets: [2, 0, 0, 2],  fingers: [1, 0, 0, 2] },
-        "E":    { frets: [0, 2, 2, 1],  fingers: [0, 2, 3, 1] },
-        "Em":   { frets: [0, 2, 2, 0],  fingers: [0, 2, 3, 0] },
-        "F":    { frets: [1, 3, 3, 2],  fingers: [1, 3, 4, 2] },
-        "F#m":  { frets: [2, 4, 4, 2],  fingers: [1, 3, 4, 1] },
-        "G":    { frets: [3, 2, 0, 0],  fingers: [2, 1, 0, 0] },
-        "A":    { frets: [-1, 0, 2, 2], fingers: [0, 0, 1, 2] },
-        "Am":   { frets: [-1, 0, 2, 2], fingers: [0, 0, 2, 3] },
-        "B":    { frets: [-1, 2, 4, 4], fingers: [0, 1, 3, 4] },
-        "Bm":   { frets: [-1, 2, 4, 4], fingers: [0, 1, 3, 4] }
+        // --- DO (C) ---
+        "C":      { frets: [-1, 3, 2, 0], fingers: [0, 3, 2, 0] },
+        "Cm":     { frets: [-1, 3, 1, 0], fingers: [0, 3, 1, 0] },
+        "C7":     { frets: [-1, 3, 2, 3], fingers: [0, 2, 1, 3] },
+        "C/E":    { frets: [0, 3, 2, 0],  fingers: [0, 3, 2, 0] },
+
+        // --- DO# / REb (C# / Db) ---
+        "C#":     { frets: [-1, 4, 3, 1], fingers: [0, 4, 3, 1] },
+        "C#m":    { frets: [-1, 4, 2, 2], fingers: [0, 3, 1, 1] },
+
+        // --- RE (D) ---
+        "D":      { frets: [-1, 5, 4, 2], fingers: [0, 4, 3, 1] },
+        "Dm":     { frets: [-1, 5, 3, 2], fingers: [0, 4, 2, 1] },
+        "D/F#":   { frets: [2, 0, 0, 2],  fingers: [1, 0, 0, 2] },
+
+        // --- MI (E) ---
+        "E":      { frets: [0, 2, 2, 1],  fingers: [0, 2, 3, 1] },
+        "Em":     { frets: [0, 2, 2, 0],  fingers: [0, 2, 3, 0] },
+
+        // --- FA (F) ---
+        "F":      { frets: [1, 3, 3, 2],  fingers: [1, 3, 4, 2] },
+        "Fm":     { frets: [1, 3, 3, 1],  fingers: [1, 3, 4, 1] },
+
+        // --- FA# / SOLb (F# / Gb) ---
+        "F#":     { frets: [2, 4, 4, 3],  fingers: [1, 3, 4, 2] },
+        "F#m":    { frets: [2, 4, 4, 2],  fingers: [1, 3, 4, 1] },
+
+        // --- SOL (G) ---
+        "G":      { frets: [3, 2, 0, 0],  fingers: [2, 1, 0, 0] },
+        "Gm":     { frets: [3, 1, 0, 0],  fingers: [3, 1, 0, 0] },
+
+        // --- LA (A) ---
+        "A":      { frets: [-1, 0, 2, 2], fingers: [0, 0, 1, 2] },
+        "Am":     { frets: [-1, 0, 2, 2], fingers: [0, 0, 2, 3] },
+
+        // --- SI (B) ---
+        "B":      { frets: [-1, 2, 4, 4], fingers: [0, 1, 3, 4] },
+        "Bm":     { frets: [-1, 2, 4, 4], fingers: [0, 1, 3, 4] },
+        "Bsus2":  { frets: [-1, 2, 4, 6], fingers: [0, 1, 2, 4] }
     },
+
     teclado: {
-        "C":    { keys: [0, 4, 7], bassKey: null },
-        "C/E":  { keys: [0, 4, 7], bassKey: 4 },
-        "C#m":  { keys: [1, 4, 8], bassKey: null },
-        "D":    { keys: [2, 6, 9], bassKey: null },
-        "Dm":   { keys: [2, 5, 9], bassKey: null },
-        "D/F#": { keys: [2, 6, 9], bassKey: 6 },
-        "E":    { keys: [4, 8, 11], bassKey: null },
-        "Em":   { keys: [4, 7, 11], bassKey: null },
-        "F":    { keys: [5, 9, 0], bassKey: null },
-        "F#m":  { keys: [6, 9, 1], bassKey: null },
-        "G":    { keys: [7, 11, 2], bassKey: null },
-        "A":    { keys: [9, 1, 4], bassKey: null },
-        "Am":   { keys: [9, 0, 4], bassKey: null },
-        "B":    { keys: [11, 3, 6], bassKey: null },
-        "Bm":   { keys: [11, 2, 6], bassKey: null }
+        // --- DO (C) ---
+        "C":      { keys: [0, 4, 7], bassKey: null },
+        "Cm":     { keys: [0, 3, 7], bassKey: null },
+        "C7":     { keys: [0, 4, 7, 10], bassKey: null },
+        "Csus2":  { keys: [0, 2, 7], bassKey: null },
+        "Csus4":  { keys: [0, 5, 7], bassKey: null },
+
+        // --- DO# / REb (C# / Db) ---
+        "C#":     { keys: [1, 5, 8], bassKey: null },
+        "C#m":    { keys: [1, 4, 8], bassKey: null },
+        "C#sus2": { keys: [1, 3, 8], bassKey: null },
+        "Db":     { keys: [1, 5, 8], bassKey: null },
+
+        // --- RE (D) ---
+        "D":      { keys: [2, 6, 9], bassKey: null },
+        "Dm":     { keys: [2, 5, 9], bassKey: null },
+        "Dsus2":  { keys: [2, 4, 9], bassKey: null },
+        "Dsus4":  { keys: [2, 7, 9], bassKey: null },
+
+        // --- MI (E) ---
+        "E":      { keys: [4, 8, 11], bassKey: null },
+        "Em":     { keys: [4, 7, 11], bassKey: null },
+        "Esus2":  { keys: [4, 6, 11], bassKey: null },
+        "Esus4":  { keys: [4, 9, 11], bassKey: null },
+
+        // --- FA (F) ---
+        "F":      { keys: [5, 9, 12], bassKey: null },
+        "Fm":     { keys: [5, 8, 12], bassKey: null },
+        "Fsus2":  { keys: [5, 7, 12], bassKey: null },
+
+        // --- FA# / SOLb (F# / Gb) ---
+        "F#":     { keys: [6, 10, 13], bassKey: null },
+        "F#m":    { keys: [6, 9, 13], bassKey: null },
+
+        // --- SOL (G) ---
+        "G":      { keys: [7, 11, 14], bassKey: null },
+        "Gm":     { keys: [7, 10, 14], bassKey: null },
+        "Gsus2":  { keys: [7, 9, 14], bassKey: null },
+        "Gsus4":  { keys: [7, 12, 14], bassKey: null },
+
+        // --- LA (A) ---
+        "A":      { keys: [9, 13, 16], bassKey: null },
+        "Am":     { keys: [9, 12, 16], bassKey: null },
+        "Asus2":  { keys: [9, 11, 16], bassKey: null },
+        "Asus4":  { keys: [9, 14, 16], bassKey: null },
+
+        // --- SI (B) ---
+        "B":      { keys: [11, 15, 18], bassKey: null },
+        "Bm":     { keys: [11, 14, 18], bassKey: null },
+        "Bsus2":  { keys: [11, 13, 18], bassKey: null },
+        "Bsus4":  { keys: [11, 16, 18], bassKey: null }
     }
 };
 
@@ -672,7 +818,7 @@ function renderizarFallbackAcorde(acorde, instrumento) {
                 <h3 class="text-xl font-black text-amber-400 mb-2">${acorde}</h3>
                 ${svgTeclado}
                 <span class="mt-3 text-[10px] uppercase font-bold text-indigo-300 bg-indigo-950/80 px-3 py-1 rounded-full border border-indigo-800">
-                    Teclado / Piano
+                    Teclado / Piano (2 Octavas)
                 </span>
             </div>
         `;
@@ -752,35 +898,52 @@ function crearSVGDiagrama(frets, fingers, numCuerdas = 6) {
     return svg;
 }
 
+// ==========================================
+// RENDERIZADO DE TECLADO DE 2 OCTAVAS COMPLETAS
+// ==========================================
 function crearSVGTeclado(activeKeys = [], bassKey = null) {
-    const width = 220;
-    const height = 110;
+    // 2 Octavas = 14 Teclas Blancas (0 a 23 semitonos)
+    const width = 420;
+    const height = 120;
     
     const whiteKeys = [
-        { note: 0 }, { note: 2 }, { note: 4 }, { note: 5 }, { note: 7 }, { note: 9 }, { note: 11 }
+        // Octava 1 (0-11)
+        { note: 0, label: 'C' }, { note: 2, label: 'D' }, { note: 4, label: 'E' },
+        { note: 5, label: 'F' }, { note: 7, label: 'G' }, { note: 9, label: 'A' }, { note: 11, label: 'B' },
+        // Octava 2 (12-23)
+        { note: 12, label: 'C' }, { note: 14, label: 'D' }, { note: 16, label: 'E' },
+        { note: 17, label: 'F' }, { note: 19, label: 'G' }, { note: 21, label: 'A' }, { note: 23, label: 'B' }
     ];
 
     const blackKeys = [
+        // Octava 1
         { note: 1, posIndex: 0 },
         { note: 3, posIndex: 1 },
         { note: 6, posIndex: 3 },
         { note: 8, posIndex: 4 },
-        { note: 10, posIndex: 5 }
+        { note: 10, posIndex: 5 },
+        // Octava 2
+        { note: 13, posIndex: 7 },
+        { note: 15, posIndex: 8 },
+        { note: 18, posIndex: 10 },
+        { note: 20, posIndex: 11 },
+        { note: 22, posIndex: 12 }
     ];
 
     const keyWidth = 28;
-    const keyHeight = 90;
+    const keyHeight = 95;
     const blackWidth = 16;
-    const blackHeight = 55;
-    const startX = 12;
+    const blackHeight = 58;
+    const startX = 14;
     const startY = 10;
 
-    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="mx-auto">`;
+    let svg = `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg" class="mx-auto w-full max-w-full">`;
 
+    // 1. Dibujar Teclas Blancas (Búsqueda de posición exacta, sin duplicar octavas)
     whiteKeys.forEach((k, idx) => {
         const x = startX + (idx * keyWidth);
         const isActive = activeKeys.includes(k.note);
-        const isBass = bassKey === k.note;
+        const isBass = bassKey !== null && bassKey === k.note;
 
         let fillColor = "#ffffff";
         if (isBass) fillColor = "#f59e0b";
@@ -789,20 +952,26 @@ function crearSVGTeclado(activeKeys = [], bassKey = null) {
         svg += `<rect x="${x}" y="${startY}" width="${keyWidth - 1}" height="${keyHeight}" fill="${fillColor}" stroke="#334155" stroke-width="1.5" rx="3" />`;
         
         if (isActive || isBass) {
-            svg += `<circle cx="${x + (keyWidth / 2) - 0.5}" cy="${startY + keyHeight - 15}" r="3.5" fill="#0f172a" />`;
+            svg += `<circle cx="${x + (keyWidth / 2) - 0.5}" cy="${startY + keyHeight - 22}" r="4" fill="#0f172a" />`;
+            svg += `<text x="${x + (keyWidth / 2) - 0.5}" y="${startY + keyHeight - 6}" font-size="9" font-family="sans-serif" font-weight="bold" fill="#0f172a" text-anchor="middle">${k.label}</text>`;
         }
     });
 
+    // 2. Dibujar Teclas Negras
     blackKeys.forEach(k => {
         const x = startX + (k.posIndex * keyWidth) + (keyWidth - (blackWidth / 2));
         const isActive = activeKeys.includes(k.note);
-        const isBass = bassKey === k.note;
+        const isBass = bassKey !== null && bassKey === k.note;
 
         let fillColor = "#1e293b";
         if (isBass) fillColor = "#f59e0b";
         else if (isActive) fillColor = "#10b981";
 
         svg += `<rect x="${x}" y="${startY}" width="${blackWidth}" height="${blackHeight}" fill="${fillColor}" stroke="#0f172a" stroke-width="1.5" rx="2" />`;
+        
+        if (isActive || isBass) {
+            svg += `<circle cx="${x + (blackWidth / 2)}" cy="${startY + blackHeight - 10}" r="3" fill="#ffffff" />`;
+        }
     });
 
     svg += `</svg>`;
@@ -1684,41 +1853,34 @@ function exportarBibliotecaPDF() {
 }
 
 function obtenerTeclasCalculadas(acorde) {
-    const NOTAS_MAP = { 
-        "C": 0, "C#": 1, "Db": 1, "D": 2, "D#": 3, "Eb": 3, 
-        "E": 4, "F": 5, "F#": 6, "Gb": 6, "G": 7, "G#": 8, 
-        "Ab": 8, "A": 9, "A#": 10, "Bb": 10, "B": 11 
-    };
-    
-    // Separar acorde base y bajo (ej. Bsus2/D#)
+    if (DIAGRAMAS_INSTRUMENTOS.teclado && DIAGRAMAS_INSTRUMENTOS.teclado[acorde]) {
+        return DIAGRAMAS_INSTRUMENTOS.teclado[acorde];
+    }
+
     let [base, bajo] = acorde.split('/');
-    
-    // Extraer la tónica (T)
     let matchTonica = base.match(/^[A-G][#b]?/i);
     if (!matchTonica) return { keys: [0, 4, 7], bassKey: null };
     
     let tonicaStr = matchTonica[0];
     let root = NOTAS_MAP[tonicaStr] !== undefined ? NOTAS_MAP[tonicaStr] : 0;
-    
-    // Lo que queda después de la tónica (ej: "sus2", "m", "maj7", "dim", etc.)
     let sufijo = base.substring(tonicaStr.length);
     
-    let intervaloMedio = (root + 4) % 12; // Por defecto: 3ª Mayor
-    let intervaloQuinta = (root + 7) % 12; // Por defecto: 5ª Justa
+    // Mantener la progresión relativa sin envolver con % 12 para conservar la octava exacta
+    let intervaloMedio = root + 4;
+    let intervaloQuinta = root + 7;
 
-    // Analizar tipo de acorde según el sufijo
     if (/sus2/i.test(sufijo)) {
-        intervaloMedio = (root + 2) % 12; // 2ª Mayor (sus2)
+        intervaloMedio = root + 2;
     } else if (/sus4|sus/i.test(sufijo)) {
-        intervaloMedio = (root + 5) % 12; // 4ª Justa (sus4)
+        intervaloMedio = root + 5;
     } else if (/dim/i.test(sufijo)) {
-        intervaloMedio = (root + 3) % 12; // 3ª Menor
-        intervaloQuinta = (root + 6) % 12; // 5ª Disminuida
+        intervaloMedio = root + 3;
+        intervaloQuinta = root + 6;
     } else if (/aug|\+/i.test(sufijo)) {
-        intervaloMedio = (root + 4) % 12; // 3ª Mayor
-        intervaloQuinta = (root + 8) % 12; // 5ª Aumentada
+        intervaloMedio = root + 4;
+        intervaloQuinta = root + 8;
     } else if (/m/i.test(sufijo) && !/maj/i.test(sufijo)) {
-        intervaloMedio = (root + 3) % 12; // 3ª Menor (Menor estándar)
+        intervaloMedio = root + 3;
     }
 
     let bassKey = bajo && NOTAS_MAP[bajo] !== undefined ? NOTAS_MAP[bajo] : null;
