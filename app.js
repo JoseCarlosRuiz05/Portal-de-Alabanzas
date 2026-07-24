@@ -30,6 +30,9 @@ let instrumentoActualModal = 'guitarra';
 const REGEX_ACORDE_STRING = "^[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\\/[A-G][#b]?)?$";
 const REGEX_ACORDE_MATCH = /\b[A-G][#b]?(?:m|maj|min|dim|aug|sus[24]?|add[0-9]?|[0-9])*(?:\/[A-G][#b]?)?\b/gi;
 
+// Estilo auxiliar inline para evitar la selección nativa en móviles
+const STYLES_CHORD_MOBILE = `user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: manipulation;`;
+
 // ==========================================
 // 3. AUTENTICACIÓN Y CONTROL DE ACCESO
 // ==========================================
@@ -470,11 +473,11 @@ function renderizarCancionActiva() {
             lyricsContainer.innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasSoloLetra.join('\n')}</pre>`;
 
         } else {
-            // MODO MÚSICO / DIRECTOR: Acordes interactivos (clickeables)
+            // MODO MÚSICO / DIRECTOR: Acordes interactivos (clickeables) protegidos contra selección móvil
             if (textoFinal.includes('[') && textoFinal.includes(']')) {
                 textoFinal = textoFinal.replace(/\[(.*?)\]/g, (match, chord) => {
                     const transpuerto = typeof transposeChord === 'function' ? transposeChord(chord, offsetActual) : chord;
-                    return `<span onclick="mostrarGraficoAcorde('${transpuerto}')" class="chord text-amber-400 font-bold font-mono px-0.5 cursor-pointer hover:bg-amber-500/20 hover:underline rounded transition" title="Ver cómo tocar ${transpuerto}">${transpuerto}</span>`;
+                    return `<span onclick="event.preventDefault(); event.stopPropagation(); mostrarGraficoAcorde('${transpuerto}')" style="${STYLES_CHORD_MOBILE}" class="chord text-amber-400 font-bold font-mono px-0.5 cursor-pointer hover:bg-amber-500/20 hover:underline rounded transition inline-block" title="Ver cómo tocar ${transpuerto}">${transpuerto}</span>`;
                 });
                 lyricsContainer.innerHTML = `<pre class="font-mono whitespace-pre-wrap text-slate-100">${textoFinal}</pre>`;
             } else {
@@ -497,7 +500,7 @@ function renderizarCancionActiva() {
                         return tokens.map(token => {
                             if (token.trim() === "") return token; 
                             let transpuerto = typeof transposeChord === 'function' ? transposeChord(token.trim(), offsetActual) : token.trim();
-                            return `<span onclick="mostrarGraficoAcorde('${transpuerto}')" class="chord text-amber-400 font-bold font-mono cursor-pointer hover:bg-amber-500/20 hover:underline rounded transition" title="Ver cómo tocar ${transpuerto}">${transpuerto}</span>`;
+                            return `<span onclick="event.preventDefault(); event.stopPropagation(); mostrarGraficoAcorde('${transpuerto}')" style="${STYLES_CHORD_MOBILE}" class="chord text-amber-400 font-bold font-mono cursor-pointer hover:bg-amber-500/20 hover:underline rounded transition inline-block" title="Ver cómo tocar ${transpuerto}">${transpuerto}</span>`;
                         }).join('');
                     }
 
