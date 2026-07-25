@@ -53,6 +53,25 @@ function alternarVisibilidadUI(mostrarLogin = false) {
     if (btnBib) btnBib.classList.toggle('hidden', mostrarLogin);
 }
 
+// CONTROL Y CAMBIO DE ROLES
+function changeRole(rol) {
+    currentRole = rol || 'director';
+    
+    // Controles exclusivos de Director
+    const directorControls = document.getElementById('directorControls');
+    if (directorControls) {
+        if (currentRole === 'director') {
+            directorControls.classList.remove('hidden');
+        } else {
+            directorControls.classList.add('hidden');
+        }
+    }
+
+    // Re-renderizar lista y vista activa según visibilidades del nuevo rol
+    renderizarListaLiturgia();
+    renderizarCancionActiva();
+}
+
 // ==========================================
 // 3. AUTENTICACIÓN Y CONTROL DE ACCESO
 // ==========================================
@@ -165,7 +184,7 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
         selector.disabled = true; 
     }
 
-    if (typeof changeRole === 'function') changeRole(perfil.rol);
+    changeRole(perfil.rol);
 
     try {
         await Promise.all([obtenerRepertorioGlobal(), cargarLiturgiaDelDia()]);
@@ -387,8 +406,13 @@ function renderizarCancionActiva() {
     const esCancion = cancion.tipo === 'cancion' || (cancion.tono_original && cancion.tono_original !== '-');
     let tonoCalculado = cancion.tono_original || "-";
 
+    // Manejo de visibilidad del control de transposición
     if (esCancion && tonoCalculado !== "-") {
-        if (transposerWidget) transposerWidget.classList.remove('hidden');
+        if (currentRole === 'cantante') {
+            if (transposerWidget) transposerWidget.classList.add('hidden');
+        } else {
+            if (transposerWidget) transposerWidget.classList.remove('hidden');
+        }
 
         const idxOriginal = scale.indexOf(cancion.tono_original);
         if (idxOriginal !== -1) {
@@ -401,6 +425,7 @@ function renderizarCancionActiva() {
         document.getElementById('currentTone').innerText = "-";
     }
 
+    // Botón de guardar tono en BD (EXCLUSIVO DIRECTOR)
     if (btnGuardar) {
         const seCambioNota = currentOffset !== 0;
         if (currentRole === 'director' && esCancion && seCambioNota) {
@@ -414,27 +439,32 @@ function renderizarCancionActiva() {
 
     if (esCancion) {
         if (currentRole === 'cantante') {
+            // ROL CANTANTE: Remover acordes completamente y limpiar saltos/espacios redundantes
             textoFinal = textoFinal.replace(/\[.*?\]/g, '');
             let lineas = textoFinal.split('\n');
-            let lineasSoloLetra = [];
+            let lineasLímpias = [];
 
             lineas.forEach(linea => {
                 let lineaLimpia = linea.trim();
-                if (lineaLimpia === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
-                    lineasSoloLetra.push(lineaLimpia);
+                
+                if (lineaLimpia === "") return;
+
+                if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
+                    lineasLímpias.push(lineaLimpia);
                     return;
                 }
 
                 let palabras = lineaLimpia.split(/\s+/);
                 const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
                 if (!palabras.every(palabra => regValidator.test(palabra))) {
-                    lineasSoloLetra.push(lineaLimpia.replace(/\s+/g, ' '));
+                    lineasLímpias.push(lineaLimpia.replace(/\s+/g, ' '));
                 }
             });
 
-            lyricsContainer.innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasSoloLetra.join('\n')}</pre>`;
+            lyricsContainer.innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasLímpias.join('\n')}</pre>`;
 
         } else {
+            // ROLES DIRECTOR Y MÚSICO: Mostrar con acordes e interacción de diagramas
             if (textoFinal.includes('[') && textoFinal.includes(']')) {
                 textoFinal = textoFinal.replace(/\[(.*?)\]/g, (match, chord) => {
                     const transpuerto = transposeChord(chord, currentOffset);
@@ -1038,6 +1068,27 @@ async function eliminarCancionDelOrden(idOrdenRow, nombrePunto) {
     }
 }
 
+// Reordenamiento de ítems (director)
+async function moverPosicion(index, direccion) {
+    if (currentRole !== 'director') return;
+    
+    const items = window.listaLiturgiaActiva || [];
+    const nuevoIndex = index + direccion;
+
+    if (nuevoIndex < 0 || nuevoIndex >= items.length) return;
+
+    const itemActual = items[index];
+    const itemDestino = items[nuevoIndex];
+
+    try {
+        await _supabase.from('liturgia').update({ posicion: itemDestino.posicion }).eq('id', itemActual.id);
+        await _supabase.from('liturgia').update({ posicion: itemActual.posicion }).eq('id', itemDestino.id);
+        await cargarLiturgiaDelDia();
+    } catch (err) {
+        console.error("Error reordenando posiciones:", err);
+    }
+}
+
 function renderizarListaLiturgia(lista) {
     const items = Array.isArray(lista) ? lista : (window.listaLiturgiaActiva || []);
     const contenedor = document.getElementById('liturgyList') || document.getElementById('listaLiturgia');
@@ -1123,6 +1174,8 @@ function transpose(delta) {
 }
 
 async function guardarTransporteActual() {
+    if (currentRole !== 'director') return;
+
     const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
                  || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
     
@@ -1138,6 +1191,7 @@ async function guardarTransporteActual() {
 }
 
 async function guardarTonoTransportado(cancion, nuevoTono) {
+    if (currentRole !== 'director') return;
     if (!cancion) return;
     if (!confirm(`¿Deseas guardar permanentemente el nuevo tono (${nuevoTono}) y actualizar los acordes de "${cancion.titulo}"?`)) return;
 
@@ -1197,6 +1251,7 @@ async function guardarTonoTransportado(cancion, nuevoTono) {
 }
 
 async function vaciarOrdenDelDia() {
+    if (currentRole !== 'director') return;
     if (!confirm("⚠️ ¿Estás seguro de que deseas LIMPIAR TODO el orden del día?\nEsta acción eliminará todas las actividades y cantos programados para hoy.")) return;
     if (!confirm("🚨 ¡Atención! Esta acción no se puede deshacer. ¿Proceder con el borrado completo?")) return;
 
@@ -1302,9 +1357,8 @@ function verDetalleCancionBiblioteca(idCancion) {
 
     const contenedorTexto = document.getElementById('bibDetalleContenido');
     let textoMostrar = cancion.letra_acordes || cancion.letra || '';
-    const esCantante = (currentRole === 'cantante') || (window.usuarioActual && window.usuarioActual.rol === 'cantante');
 
-    if (esCantante) {
+    if (currentRole === 'cantante') {
         document.getElementById('bibDetalleTonoContainer').classList.add('hidden');
         textoMostrar = limpiarAcordesParaCantantes(textoMostrar);
     } else {
