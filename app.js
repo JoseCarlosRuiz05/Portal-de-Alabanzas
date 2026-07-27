@@ -439,29 +439,38 @@ function renderizarCancionActiva() {
 
     if (esCancion) {
         if (currentRole === 'cantante') {
-            // ROL CANTANTE: Remover acordes completamente y limpiar saltos/espacios redundantes
+            // ROL CANTANTE: Remover acordes y formatear con separación de estrofas y secciones
             textoFinal = textoFinal.replace(/\[.*?\]/g, '');
             let lineas = textoFinal.split('\n');
-            let lineasLímpias = [];
+            let htmlFormateado = '';
 
             lineas.forEach(linea => {
                 let lineaLimpia = linea.trim();
                 
-                if (lineaLimpia === "") return;
-
-                if (/^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
-                    lineasLímpias.push(lineaLimpia);
+                // Línea en blanco: funciona como separación vertical entre estrofas
+                if (lineaLimpia === "") {
+                    htmlFormateado += `<div class="h-4"></div>`;
                     return;
                 }
 
-                let palabras = lineaLimpia.split(/\s+/);
-                const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
-                if (!palabras.every(palabra => regValidator.test(palabra))) {
-                    lineasLímpias.push(lineaLimpia.replace(/\s+/g, ' '));
+                // Detección de encabezados de sección (-- CORO --, [VERSO], ESTROFA, etc.)
+                const esEncabezado = /^(--|\[)?\s*(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG|PARA TERMINAR)\b/i.test(lineaLimpia);
+
+                if (esEncabezado) {
+                    htmlFormateado += `<span class="song-section-header block font-bold text-sky-400 uppercase tracking-wider text-sm mt-5 mb-2 pb-1 border-b border-slate-700">${lineaLimpia}</span>`;
+                } else {
+                    // Validar si la línea es únicamente una fila de acordes sueltos que hayan quedado sin corchetes
+                    let palabras = lineaLimpia.split(/\s+/);
+                    const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
+                    const esLineaPuraDeAcordes = palabras.every(palabra => regValidator.test(palabra));
+
+                    if (!esLineaPuraDeAcordes) {
+                        htmlFormateado += `<div class="leading-relaxed py-0.5">${lineaLimpia.replace(/\s+/g, ' ')}</div>`;
+                    }
                 }
             });
 
-            lyricsContainer.innerHTML = `<pre class="font-sans whitespace-pre-wrap text-slate-100">${lineasLímpias.join('\n')}</pre>`;
+            lyricsContainer.innerHTML = `<div class="font-sans text-slate-100 text-base">${htmlFormateado}</div>`;
 
         } else {
             // ROLES DIRECTOR Y MÚSICO: Mostrar con acordes e interacción de diagramas
@@ -512,6 +521,7 @@ function renderizarCancionActiva() {
         `;
     }
 }
+
 
 // ==========================================
 // 6.B DICCIONARIO Y DIAGRAMA DE ACORDES
