@@ -2,14 +2,14 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Portal Alabanza - Iglesia Cristo Vive</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- Librería para exportar contenedores HTML a PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <!-- Librería Cliente de Supabase JS (Agregado) -->
+    <!-- Librería Cliente de Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <!-- ESTILOS ADAPTADOS (FONDO OSCURO ORIGINAL + MEJORAS EN MÓVIL Y SECCIONES) -->
@@ -24,9 +24,9 @@
         color: #f8fafc;                     /* Texto claro para buen contraste */
         border-radius: 12px;
         border: 1px solid #1e293b;
-        padding: 16px 12px;                 /* Relleno optimizado para móvil */
+        padding: 16px 8px;                  /* Relleno lateral muy ajustado para móvil */
         width: 100%;
-        max-width: 800px;
+        max-width: 100%;
         margin: 0 auto;
         box-sizing: border-box;
         font-size: 1rem;
@@ -56,18 +56,29 @@
         margin-top: 0;
     }
 
-    /* Optimización para móviles en posición vertical */
+    /* Optimización estricta para móviles en posición vertical */
     @media screen and (max-width: 480px) {
+        body {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        /* Hace que el main aproveche todo el ancho físico de la pantalla móvil */
+        main.max-w-6xl {
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+        }
+
         #songLyricsContainer {
-            padding: 12px 6px !important;   /* Reduce al mínimo el margen lateral interior */
-            font-size: 0.92rem;             /* Tamaño de letra ideal para no cortar versos */
-            border-radius: 8px;
+            padding: 10px 4px !important;   /* Elimina márgenes internos laterales */
+            font-size: 0.90rem;             /* Tamaño adaptado para que no se corten las letras */
+            border-radius: 6px;
         }
 
         .song-section-header, 
         #songLyricsContainer .section-title {
-            font-size: 0.88rem;
-            margin-top: 16px;
+            font-size: 0.85rem;
+            margin-top: 14px;
         }
     }
 
@@ -140,13 +151,13 @@
     <!-- ========================================== -->
     <!-- CABECERA / NAVBAR                          -->
     <!-- ========================================== -->
-    <header class="bg-indigo-900 text-white shadow-md py-4 px-6 sticky top-0 z-50">
+    <header class="bg-indigo-900 text-white shadow-md py-4 px-4 sm:px-6 sticky top-0 z-50">
         <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             
             <div class="flex items-center gap-4">
-                <img src="LogoCV.png" alt="Logo Iglesia Cristo Vive" class="h-16 w-auto object-contain">
+                <img src="LogoCV.png" alt="Logo Iglesia Cristo Vive" class="h-14 sm:h-16 w-auto object-contain">
                 <div>
-                    <h1 class="text-2xl font-bold tracking-wide leading-tight">Iglesia Cristo Vive</h1>
+                    <h1 class="text-xl sm:text-2xl font-bold tracking-wide leading-tight">Iglesia Cristo Vive</h1>
                     <p class="text-xs text-indigo-200">Portal de Liturgia y Alabanza</p>
                 </div>
             </div>
@@ -188,10 +199,10 @@
     <!-- ========================================== -->
     <!-- CONTENIDO PRINCIPAL                        -->
     <!-- ========================================== -->
-    <main class="max-w-6xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <main class="max-w-6xl mx-auto px-1 py-4 sm:p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         
         <!-- COLUMNA IZQUIERDA: Orden de la Liturgia -->
-        <section class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6 h-fit">
+        <section class="lg:col-span-1 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6 h-fit">
             <div>
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold text-slate-900">Orden del Día</h2>
@@ -222,7 +233,7 @@
                 </div>
             </div>
 
-            <!-- WIDGET: USUARIOS (Pegado inmediatamente debajo) -->
+            <!-- WIDGET: USUARIOS -->
             <div class="pt-4 border-t border-slate-200">
                 <div class="flex items-center justify-between mb-3">
                     <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
@@ -238,13 +249,13 @@
         </section>
 
         <!-- COLUMNA DERECHA: Visor de Alabanza Activa -->
-        <section class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+        <section class="lg:col-span-2 bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
             <div id="contenedorExportablePDF">
-                <div class="border-b border-slate-100 pb-6 mb-6">
+                <div class="border-b border-slate-100 pb-4 sm:pb-6 mb-4 sm:mb-6">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div>
                             <span class="text-xs font-bold uppercase tracking-wider text-indigo-600" id="songCategory">-</span>
-                            <h2 class="text-3xl font-extrabold text-slate-900 mt-1" id="songTitle">Selecciona una Alabanza</h2>
+                            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1" id="songTitle">Selecciona una Alabanza</h2>
                             <p class="text-sm text-slate-500">Tono base original: <span id="originalTone" class="font-bold">-</span></p>
                         </div>
 
@@ -281,7 +292,7 @@
                     </div>
                 </div>
 
-                <div class="bg-slate-900 text-slate-100 p-4 md:p-6 rounded-2xl shadow-inner font-mono overflow-x-auto whitespace-pre text-xs sm:text-sm md:text-base leading-relaxed transition-all duration-300" id="songLyricsContainer">
+                <div class="bg-slate-900 text-slate-100 p-3 sm:p-6 rounded-2xl shadow-inner font-mono overflow-x-auto whitespace-pre text-xs sm:text-sm md:text-base leading-relaxed transition-all duration-300" id="songLyricsContainer">
                     <p class="text-slate-400 text-center py-4">Inicia sesión para visualizar las letras.</p>
                 </div>
             </div>
