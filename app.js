@@ -354,30 +354,25 @@ function seleccionarElemento(id) {
 function transposeChord(chord, steps) {
     if (!chord) return chord;
 
-    // Manejar acordes con bajo invertido (ej. Em/G, C/E)
     if (chord.includes('/')) {
         const partes = chord.split('/');
         return transposeChord(partes[0], steps) + '/' + transposeChord(partes[1], steps);
     }
 
-    // EXPRESIÓN REGULAR MEJORADA:
-    // Captura la nota raíz (G, F#, Bb) en match[1] y el resto (m, m7, sus4, maj7, etc.) en match[2]
     const match = chord.match(/^([A-G][#b]?)(.*)$/);
     if (!match) return chord;
 
     let root = match[1];
-    let suffix = match[2]; // Conserva la calidad intacta (m, dim, 7, etc.)
+    let suffix = match[2];
 
-    // Mapeo alternativo por si vienen bemoles en las letras
     const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
     if (mapaBemoles[root]) {
         root = mapaBemoles[root];
     }
 
     const currentIndex = scale.indexOf(root);
-    if (currentIndex === -1) return chord; // Si no está en las 12 notas cromáticas, devuelve el original
+    if (currentIndex === -1) return chord;
 
-    // Cálculo cíclico usando módulo 12
     const newIndex = (currentIndex + steps + 12) % 12;
     return scale[newIndex] + suffix;
 }
@@ -411,7 +406,6 @@ function renderizarCancionActiva() {
     const esCancion = cancion.tipo === 'cancion' || (cancion.tono_original && cancion.tono_original !== '-');
     let tonoCalculado = cancion.tono_original || "-";
 
-    // Manejo de visibilidad del control de transposición
     if (esCancion && tonoCalculado !== "-") {
         if (currentRole === 'cantante') {
             if (transposerWidget) transposerWidget.classList.add('hidden');
@@ -430,7 +424,6 @@ function renderizarCancionActiva() {
         document.getElementById('currentTone').innerText = "-";
     }
 
-    // Botón de guardar tono en BD (EXCLUSIVO DIRECTOR)
     if (btnGuardar) {
         const seCambioNota = currentOffset !== 0;
         if (currentRole === 'director' && esCancion && seCambioNota) {
@@ -444,7 +437,6 @@ function renderizarCancionActiva() {
 
     if (esCancion) {
         if (currentRole === 'cantante') {
-            // ROL CANTANTE: Remover acordes y formatear con separación de estrofas y secciones
             textoFinal = textoFinal.replace(/\[.*?\]/g, '');
             let lineas = textoFinal.split('\n');
             let htmlFormateado = '';
@@ -452,19 +444,16 @@ function renderizarCancionActiva() {
             lineas.forEach(linea => {
                 let lineaLimpia = linea.trim();
                 
-                // Línea en blanco: funciona como separación vertical entre estrofas
                 if (lineaLimpia === "") {
                     htmlFormateado += `<div class="h-4"></div>`;
                     return;
                 }
 
-                // Detección de encabezados de sección (-- CORO --, [VERSO], ESTROFA, etc.)
                 const esEncabezado = /^(--|\[)?\s*(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG|PARA TERMINAR)\b/i.test(lineaLimpia);
 
                 if (esEncabezado) {
                     htmlFormateado += `<span class="song-section-header block font-bold text-sky-400 uppercase tracking-wider text-sm mt-5 mb-2 pb-1 border-b border-slate-700">${lineaLimpia}</span>`;
                 } else {
-                    // Validar si la línea es únicamente una fila de acordes sueltos que hayan quedado sin corchetes
                     let palabras = lineaLimpia.split(/\s+/);
                     const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
                     const esLineaPuraDeAcordes = palabras.every(palabra => regValidator.test(palabra));
@@ -478,7 +467,6 @@ function renderizarCancionActiva() {
             lyricsContainer.innerHTML = `<div class="font-sans text-slate-100 text-base">${htmlFormateado}</div>`;
 
         } else {
-            // ROLES DIRECTOR Y MÚSICO: Mostrar con acordes e interacción de diagramas
             if (textoFinal.includes('[') && textoFinal.includes(']')) {
                 textoFinal = textoFinal.replace(/\[(.*?)\]/g, (match, chord) => {
                     const transpuerto = transposeChord(chord, currentOffset);
@@ -526,6 +514,7 @@ function renderizarCancionActiva() {
         `;
     }
 }
+
 // ==========================================
 // 6.B DICCIONARIO Y DIAGRAMA DE ACORDES
 // ==========================================
@@ -589,9 +578,6 @@ function renderizarDiagrama() {
     }
 }
 
-// ==========================================
-// DICCIONARIO COMPLETO DE DIAGRAMAS DE ACORDES
-// ==========================================
 const DIAGRAMAS_INSTRUMENTOS = {
     guitarra: {
         "C":      { frets: [-1, 3, 2, 0, 1, 0], fingers: [0, 3, 2, 0, 1, 0] },
@@ -802,11 +788,9 @@ function crearSVGDiagrama(frets, fingers, numCuerdas = 6) {
     return svg;
 }
 
-// Helper modularizado para iterar sobre octavas de teclado en SVG
 function generarTeclasOctavaSVG(whiteKeys, blackKeys, activeKeys, bassKey, startX, keyWidth, keyHeight, blackWidth, blackHeight, startY) {
     let svg = '';
     
-    // Dibujar Teclas Blancas
     whiteKeys.forEach((k, idx) => {
         const x = startX + (idx * keyWidth);
         const isActive = activeKeys.includes(k.note);
@@ -821,7 +805,6 @@ function generarTeclasOctavaSVG(whiteKeys, blackKeys, activeKeys, bassKey, start
         }
     });
 
-    // Dibujar Teclas Negras
     blackKeys.forEach(k => {
         const x = startX + (k.posIndex * keyWidth) + (keyWidth - (blackWidth / 2));
         const isActive = activeKeys.includes(k.note);
@@ -838,7 +821,6 @@ function generarTeclasOctavaSVG(whiteKeys, blackKeys, activeKeys, bassKey, start
     return svg;
 }
 
-// RENDERIZADO DE TECLADO DE 2 OCTAVAS COMPLETAS
 function crearSVGTeclado(activeKeys = [], bassKey = null) {
     const width = 420, height = 120;
     const whiteKeys = [
@@ -1081,7 +1063,6 @@ async function eliminarCancionDelOrden(idOrdenRow, nombrePunto) {
     }
 }
 
-// Reordenamiento de ítems (director)
 async function moverPosicion(index, direccion) {
     if (currentRole !== 'director') return;
     
@@ -1711,20 +1692,30 @@ function obtenerTeclasCalculadas(acorde) {
 }
 
 // ==========================================
-// 14. NOTIFICACIONES EN TIEMPO REAL AL EQUIPO
+// 14. NOTIFICACIONES Y SONIDO EN MÓVILES
 // ==========================================
 
-// Inicialización de escuchadores de notificaciones (Se llama automáticamente al cargar)
+// Escuchador global: Desbloquea el audio del navegador al primer toque de la pantalla
+document.addEventListener('click', function desbloquearAudioNavegador() {
+    const audio = document.getElementById('sonidoTimbre');
+    if (audio) {
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+            console.log("🔊 Permiso de audio habilitado en el navegador.");
+        }).catch(err => console.log("Esperando toque de usuario para audio...", err));
+    }
+}, { once: true });
+
+// Inicialización de escuchadores de notificaciones
 window.addEventListener('DOMContentLoaded', () => {
     inicializarCanalNotificaciones();
 });
 
 function inicializarCanalNotificaciones() {
     if (typeof _supabase !== 'undefined') {
-        // Reutilizamos o asignamos el canal de broadcasts
         const canalNotificaciones = _supabase.channel('notificaciones-liturgia');
 
-        // Escuchar el evento 'orden_listo' enviado por el director
         canalNotificaciones.on('broadcast', { event: 'orden_listo' }, (payload) => {
             reproducirAvisoEquipo(payload.payload?.mensaje);
         }).subscribe((status) => {
@@ -1735,7 +1726,7 @@ function inicializarCanalNotificaciones() {
     }
 }
 
-// 1. Enviar notificación al equipo (Exclusivo para Director)
+// Enviar notificación al equipo (Exclusivo Director)
 async function notificarEquipoLiturgiaLista() {
     const btn = document.getElementById('btnNotificarEquipo');
     if (btn) {
@@ -1764,18 +1755,16 @@ async function notificarEquipoLiturgiaLista() {
     }
 }
 
-// 2. Receptor para la notificación (Reproduce sonido y alerta a músicos/cantantes)
-// Receptor para la notificación (Reproduce sonido y alerta a músicos/cantantes)
+// Receptor para reproducir sonido y mostrar la alerta
 function reproducirAvisoEquipo(mensaje) {
     const audio = document.getElementById('sonidoTimbre');
     
     if (audio) {
-        audio.currentTime = 0; // Reiniciar el audio al segundo 0
+        audio.currentTime = 0;
         const playPromise = audio.play();
 
         if (playPromise !== undefined) {
             playPromise.then(() => {
-                // El audio comenzó a sonar correctamente
                 console.log("🔔 Timbre reproducido exitosamente.");
             }).catch(error => {
                 console.warn("⚠️ El navegador bloqueó el audio automático:", error);
@@ -1783,22 +1772,8 @@ function reproducirAvisoEquipo(mensaje) {
         }
     }
 
-    // Usar setTimeout para dar tiempo a que empiece a sonar el timbre antes de pausar la pantalla con el alert
+    // Retrasar el alert para no bloquear la ejecución del audio al recibir la señal
     setTimeout(() => {
         alert(mensaje || '✨ ¡El Orden del Día ya se encuentra disponible!');
-    }, 300);
+    }, 400);
 }
-
-    // Activar el permiso de audio al primer clic en cualquier lugar de la pantalla
-document.addEventListener('click', function habilitarAudioNavegador() {
-    const audio = document.getElementById('sonidoTimbre');
-    if (audio) {
-        // Reproducimos y pausamos inmediatamente para ganar permiso del navegador
-        audio.play().then(() => {
-            audio.pause();
-            audio.currentTime = 0;
-        }).catch(() => {});
-    }
-    // Una vez desbloqueado, removemos este escuchador
-    document.removeEventListener('click', habilitarAudioNavegador);
-}, { once: true });
