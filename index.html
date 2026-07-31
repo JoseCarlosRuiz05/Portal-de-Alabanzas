@@ -123,392 +123,422 @@
 </style>
 
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col justify-between">
 
-    <!-- ========================================== -->
-    <!-- PANTALLA DE LOGIN (Modo Bloqueo Inicial)   -->
-    <!-- ========================================== -->
-    <div id="loginScreen" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50 transition-all duration-300">
-        <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full border border-slate-100">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-slate-950">Portal Alabanza</h2>
-                <p class="text-sm text-slate-500 mt-1">Iglesia Cristo Vive</p>
-            </div>
-            <form id="loginForm" onsubmit="procesarLogin(event)" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Correo Electrónico</label>
-                    <input type="email" id="loginEmail" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-sm" placeholder="ejemplo@cristovive.com">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Contraseña</label>
-                    <input type="password" id="loginPassword" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-sm" placeholder="••••••••">
-                </div>
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition shadow-md">
-                    Ingresar al Portal
-                </button>
-            </form>
-        </div>
-    </div>
+    <!-- Elemento de Audio para el Timbre de Notificación -->
+    <audio id="sonidoTimbre" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
-    <!-- ========================================== -->
-    <!-- CABECERA / NAVBAR                          -->
-    <!-- ========================================== -->
-    <header class="bg-indigo-900 text-white shadow-md py-4 px-4 sm:px-6 sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
-            
-            <div class="flex items-center gap-4">
-                <img src="LogoCV.png" alt="Logo Iglesia Cristo Vive" class="h-14 sm:h-16 w-auto object-contain">
-                <div>
-                    <h1 class="text-xl sm:text-2xl font-bold tracking-wide leading-tight">Iglesia Cristo Vive</h1>
-                    <p class="text-xs text-indigo-200">Portal de Liturgia y Alabanza</p>
+    <div>
+        <!-- ========================================== -->
+        <!-- PANTALLA DE LOGIN (Modo Bloqueo Inicial)   -->
+        <!-- ========================================== -->
+        <div id="loginScreen" class="fixed inset-0 bg-slate-900 flex items-center justify-center p-4 z-50 transition-all duration-300">
+            <div class="bg-white p-8 rounded-2xl shadow-2xl max-w-md w-full border border-slate-100">
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-950">Portal Alabanza</h2>
+                    <p class="text-sm text-slate-500 mt-1">Iglesia Cristo Vive</p>
                 </div>
-            </div>
-            
-            <div class="flex items-center gap-3 flex-wrap justify-center">
-                <button type="button" id="btnBiblioteca" onclick="abrirModalBiblioteca()" class="hidden bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold uppercase tracking-wider py-2 px-3 rounded-lg transition shadow-md flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                    Biblioteca
-                </button>
-
-                <div id="userInfo" class="hidden sm:flex items-center gap-2 text-indigo-100 text-xs font-medium bg-indigo-800/80 py-2 px-3 rounded-lg border border-indigo-700/60 shadow-inner">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span id="userNameDisplay">Cargando usuario...</span>
-                </div>
-
-                <div class="flex items-center gap-2 bg-indigo-800 p-2 rounded-lg border border-indigo-700">
-                    <span class="text-xs font-semibold uppercase text-indigo-300">Rol Actual:</span>
-                    <select id="roleSelector" onchange="changeRole(this.value)" class="bg-indigo-950 text-white text-sm rounded border-none focus:ring-2 focus:ring-indigo-500 p-1 cursor-pointer">
-                        <option value="director">Director</option>
-                        <option value="musico">Músico</option>
-                        <option value="cantante">Cantante</option>
-                    </select>
-                </div>
-
-                <button id="btnCerrarSesion" onclick="cerrarSesion()" class="hidden bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition shadow-md flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Salir
-                </button>
+                <form id="loginForm" onsubmit="procesarLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Correo Electrónico</label>
+                        <input type="email" id="loginEmail" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-sm" placeholder="ejemplo@cristovive.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Contraseña</label>
+                        <input type="password" id="loginPassword" required class="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 text-sm" placeholder="••••••••">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition shadow-md">
+                        Ingresar al Portal
+                    </button>
+                </form>
             </div>
         </div>
-    </header>
-    
-    <!-- ========================================== -->
-    <!-- CONTENIDO PRINCIPAL                        -->
-    <!-- ========================================== -->
-    <main class="max-w-6xl mx-auto px-1 py-4 sm:p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        
-        <!-- COLUMNA IZQUIERDA: Orden de la Liturgia -->
-        <section class="lg:col-span-1 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6 h-fit">
-            <div>
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold text-slate-900">Orden del Día</h2>
-                    <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Liturgia Activa</span>
-                </div>
-                <p class="text-xs text-slate-500 mb-6">Haz clic en una canción para ver el detalle.</p>
 
-                <!-- Contenedor dinámico de canciones -->
-                <div class="space-y-3 mb-6" id="liturgyList">
-                    <p class="text-slate-400 text-xs p-2 text-center animate-pulse">Esperando inicio de sesión...</p>
-                </div>
-
-                <!-- Botones exclusivos del Director -->
-                <div id="directorControls" class="hidden flex flex-col gap-3">
-                    <button onclick="openModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        Añadir/Modificar Liturgia
-                    </button>
-
-                    <button onclick="vaciarOrdenDelDia()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-2 px-4 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Limpiar Todo el Orden
-                    </button>
-                </div>
-            </div>
-
-            <!-- WIDGET: USUARIOS -->
-            <div class="pt-4 border-t border-slate-200">
-                <div class="flex items-center justify-between mb-3">
-                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
-                        <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-                        Usuarios
-                    </h4>
+        <!-- ========================================== -->
+        <!-- CABECERA / NAVBAR                          -->
+        <!-- ========================================== -->
+        <header class="bg-indigo-900 text-white shadow-md py-4 px-4 sm:px-6 sticky top-0 z-50">
+            <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                
+                <div class="flex items-center gap-4">
+                    <img src="LogoCV.png" alt="Logo Iglesia Cristo Vive" class="h-14 sm:h-16 w-auto object-contain">
+                    <div>
+                        <h1 class="text-xl sm:text-2xl font-bold tracking-wide leading-tight">Iglesia Cristo Vive</h1>
+                        <p class="text-xs text-indigo-200">Portal de Liturgia y Alabanza</p>
+                    </div>
                 </div>
                 
-                <div id="listaUsuariosEnLinea" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                    <p class="text-xs text-slate-400 italic">Cargando lista de usuarios...</p>
+                <div class="flex items-center gap-3 flex-wrap justify-center">
+                    <button type="button" id="btnBiblioteca" onclick="abrirModalBiblioteca()" class="hidden bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold uppercase tracking-wider py-2 px-3 rounded-lg transition shadow-md flex items-center gap-1.5">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        Biblioteca
+                    </button>
+
+                    <div id="userInfo" class="hidden sm:flex items-center gap-2 text-indigo-100 text-xs font-medium bg-indigo-800/80 py-2 px-3 rounded-lg border border-indigo-700/60 shadow-inner">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span id="userNameDisplay">Cargando usuario...</span>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-indigo-800 p-2 rounded-lg border border-indigo-700">
+                        <span class="text-xs font-semibold uppercase text-indigo-300">Rol Actual:</span>
+                        <select id="roleSelector" onchange="changeRole(this.value)" class="bg-indigo-950 text-white text-sm rounded border-none focus:ring-2 focus:ring-indigo-500 p-1 cursor-pointer">
+                            <option value="director">Director</option>
+                            <option value="musico">Músico</option>
+                            <option value="cantante">Cantante</option>
+                        </select>
+                    </div>
+
+                    <button id="btnCerrarSesion" onclick="cerrarSesion()" class="hidden bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold uppercase tracking-wider py-2.5 px-4 rounded-lg transition shadow-md flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Salir
+                    </button>
                 </div>
             </div>
-        </section>
+        </header>
+        
+        <!-- ========================================== -->
+        <!-- CONTENIDO PRINCIPAL                        -->
+        <!-- ========================================== -->
+        <main class="max-w-6xl mx-auto px-1 py-4 sm:p-4 md:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+            
+            <!-- COLUMNA IZQUIERDA: Orden de la Liturgia -->
+            <section class="lg:col-span-1 bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-6 h-fit">
+                <div>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold text-slate-900">Orden del Día</h2>
+                        <span class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-semibold">Liturgia Activa</span>
+                    </div>
+                    <p class="text-xs text-slate-500 mb-6">Haz clic en una canción para ver el detalle.</p>
 
-        <!-- COLUMNA DERECHA: Visor de Alabanza Activa -->
-        <section class="lg:col-span-2 bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-            <div id="contenedorExportablePDF">
-                <div class="border-b border-slate-100 pb-4 sm:pb-6 mb-4 sm:mb-6">
-                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div>
-                            <span class="text-xs font-bold uppercase tracking-wider text-indigo-600" id="songCategory">-</span>
-                            <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1" id="songTitle">Selecciona una Alabanza</h2>
-                            <p class="text-sm text-slate-500">Tono base original: <span id="originalTone" class="font-bold">-</span></p>
+                    <!-- Contenedor dinámico de canciones -->
+                    <div class="space-y-3 mb-6" id="liturgyList">
+                        <p class="text-slate-400 text-xs p-2 text-center animate-pulse">Esperando inicio de sesión...</p>
+                    </div>
+
+                    <!-- Botones exclusivos del Director -->
+                    <div id="directorControls" class="hidden flex flex-col gap-3">
+                        
+                        <!-- BOTÓN: Notificar al Equipo (Exclusivo Director) -->
+                        <button id="btnNotificarEquipo" onclick="notificarEquipoLiturgiaLista()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-md">
+                            <svg id="iconoCampana" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            🔔 Notificar al Equipo
+                        </button>
+
+                        <button onclick="openModal()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2 shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Añadir/Modificar Liturgia
+                        </button>
+
+                        <button onclick="vaciarOrdenDelDia()" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-medium py-2 px-4 rounded-xl transition flex items-center justify-center gap-2 text-sm shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Limpiar Todo el Orden
+                        </button>
+                    </div>
+                </div>
+
+                <!-- WIDGET: USUARIOS -->
+                <div class="pt-4 border-t border-slate-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                            Usuarios
+                        </h4>
+                    </div>
+                    
+                    <div id="listaUsuariosEnLinea" class="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        <p class="text-xs text-slate-400 italic">Cargando lista de usuarios...</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COLUMNA DERECHA: Visor de Alabanza Activa -->
+            <section class="lg:col-span-2 bg-white p-3 sm:p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+                <div id="contenedorExportablePDF">
+                    <div class="border-b border-slate-100 pb-4 sm:pb-6 mb-4 sm:mb-6">
+                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <span class="text-xs font-bold uppercase tracking-wider text-indigo-600" id="songCategory">-</span>
+                                <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1" id="songTitle">Selecciona una Alabanza</h2>
+                                <p class="text-sm text-slate-500">Tono base original: <span id="originalTone" class="font-bold">-</span></p>
+                            </div>
+
+                            <div id="transposerWidget" class="hidden flex items-center gap-2 bg-slate-100 p-2 rounded-xl self-start md:self-auto">
+                                <span class="text-xs font-bold text-slate-600 px-2">Transportar:</span>
+                                <button type="button" onclick="transpose(-1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">-</button>
+                                <span id="currentTone" class="w-12 text-center font-mono font-extrabold text-indigo-600 text-lg bg-white py-0.5 rounded shadow-inner">-</span>
+                                <button type="button" onclick="transpose(1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">+</button>
+                            </div>
                         </div>
 
-                        <div id="transposerWidget" class="hidden flex items-center gap-2 bg-slate-100 p-2 rounded-xl self-start md:self-auto">
-                            <span class="text-xs font-bold text-slate-600 px-2">Transportar:</span>
-                            <button type="button" onclick="transpose(-1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">-</button>
-                            <span id="currentTone" class="w-12 text-center font-mono font-extrabold text-indigo-600 text-lg bg-white py-0.5 rounded shadow-inner">-</span>
-                            <button type="button" onclick="transpose(1)" class="w-8 h-8 flex items-center justify-center bg-white hover:bg-slate-200 rounded-lg shadow-sm font-bold transition text-slate-700">+</button>
+                        <div class="flex justify-end items-center gap-2 mt-3" id="accionesPDF">
+                            <button 
+                                id="btnExportarPDF" 
+                                type="button" 
+                                onclick="exportarCancionPDF()" 
+                                class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Descargar PDF
+                            </button>
+
+                            <button 
+                                id="btnGuardarTono" 
+                                type="button" 
+                                onclick="guardarTransporteActual()" 
+                                class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Guardar Tono
+                            </button>
                         </div>
                     </div>
 
-                    <div class="flex justify-end items-center gap-2 mt-3" id="accionesPDF">
-                        <button 
-                            id="btnExportarPDF" 
-                            type="button" 
-                            onclick="exportarCancionPDF()" 
-                            class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                    <div class="bg-slate-900 text-slate-100 p-3 sm:p-6 rounded-2xl shadow-inner font-mono overflow-x-auto whitespace-pre text-xs sm:text-sm md:text-base leading-relaxed transition-all duration-300" id="songLyricsContainer">
+                        <p class="text-slate-400 text-center py-4">Inicia sesión para visualizar las letras.</p>
+                    </div>
+                </div>
+                
+                <div class="mt-6 text-xs text-slate-400 text-center">
+                    * Las notas musicales están en cifrado americano (C, D, E, F, G, A, B). Haz clic en un acorde para ver su posición.
+                </div>
+            </section>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- MODAL: Subir / Editar Alabanzas (Director) -->
+        <!-- ========================================== -->
+        <div id="directorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transform scale-95 transition-all">
+                <div class="bg-indigo-900 text-white p-6">
+                    <h3 class="text-xl font-bold">Panel del Director</h3>
+                    <p class="text-xs text-indigo-200">Agrega una alabanza a la liturgia de hoy</p>
+                </div>
+                
+                <form id="directorForm" onsubmit="guardarNuevaAlabanza(event)" class="space-y-4 p-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">🔍 Buscar en el Repertorio Guardado</label>
+                        <select id="modalBuscarRepertorio" onchange="cargarCancionDesdeRepertorio(this.value)" class="w-full p-2.5 rounded-xl border border-indigo-200 text-sm bg-indigo-50/50 focus:ring-2 focus:ring-indigo-500">
+                            <option value="">-- Selecciona una canción existente para reutilizarla --</option>
+                        </select>
+                        <p class="text-[10px] text-slate-400 mt-0.5">* O llena los campos de abajo si es un canto completamente nuevo.</p>
+                    </div>
+
+                    <hr class="border-slate-100 my-3">
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tipo de Registro</label>
+                        <select id="modalTipoPunto" onchange="alternarCamposFormulario(this.value)" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500">
+                            <option value="cancion">🎵 Alabanza / Canto Nuevo</option>
+                            <option value="general">📝 Punto General (Oración, Avisos, etc.)</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Momento / Sección</label>
+                            <select id="modalMomento" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500">
+                                <option value="Introduccion">Introduccion</option>
+                                <option value="Fraternidad">Fraternidad</option>
+                                <option value="Proclamacion">Proclamacion</option>
+                                <option value="Respuesta">Respuesta</option>
+                                <option value="Despedida">Despedida</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label id="labelTitulo" class="block text-xs font-bold text-slate-600 uppercase mb-1">Nombre de la Alabanza</label>
+                            <input type="text" id="modalTitulo" required class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Ej: Gracia sublime es">
+                        </div>
+                    </div>
+
+                    <!-- Campos Exclusivos para Canción -->
+                    <div id="seccionExclusivaCancion" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tono Base Original</label>
+                            <select id="modalTono" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 font-mono">
+                                <option value="C">C (Do)</option>
+                                <option value="C#">C# / Db</option>
+                                <option value="D">D (Re)</option>
+                                <option value="D#">D# / Eb</option>
+                                <option value="E">E (Mi)</option>
+                                <option value="F">F (Fa)</option>
+                                <option value="F#">F# / Gb</option>
+                                <option value="G">G (Sol)</option>
+                                <option value="G#">G# / Ab</option>
+                                <option value="A">A (La)</option>
+                                <option value="A#">A# / Bb</option>
+                                <option value="B">B (Si)</option>
+
+                                <!-- Menores -->
+                                <option value="Cm">Cm (Do menor)</option>
+                                <option value="C#m">C#m / Dbm</option>
+                                <option value="Dm">Dm (Re menor)</option>
+                                <option value="D#m">D#m / Ebm</option>
+                                <option value="Em">Em (Mi menor)</option>
+                                <option value="Fm">Fm (Fa menor)</option>
+                                <option value="F#m">F#m / Gbm</option>
+                                <option value="Gm">Gm (Sol menor)</option>
+                                <option value="G#m">G#m / Abm</option>
+                                <option value="Am">Am (La menor)</option>
+                                <option value="A#m">A#m / Bbm</option>
+                                <option value="Bm">Bm (Si menor)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Letra y Acordes</label>
+                            <textarea id="modalLetra" rows="6" class="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500" placeholder="Escribe la letra con notas entre corchetes, ej: [C]Gracia [G]sublime..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Campos Exclusivos para Punto General -->
+                    <div id="seccionExclusivaGeneral" class="hidden space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Observaciones / Indicaciones</label>
+                            <textarea id="modalComentarios" rows="4" class="w-full p-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Detalles de la actividad, quién dirige, etc..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 text-sm font-semibold hover:bg-slate-100 transition">Cancelar</button>
+                        <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition shadow-md">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- MODAL: Biblioteca de Alabanzas             -->
+        <!-- ========================================== -->
+        <div id="modalBiblioteca" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+            <div class="bg-slate-800 text-slate-100 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-700">
+                <!-- Header Modal -->
+                <div class="p-5 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
+                    <div class="flex items-center gap-3">
+                        <button id="btnVolverBiblioteca" onclick="volverAListaBiblioteca()" class="hidden p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            </svg>
+                        </button>
+                        <h3 class="text-lg font-bold text-white" id="tituloModalBiblioteca">📖 Biblioteca de Alabanzas</h3>
+                    </div>
+                    <button onclick="cerrarModalBiblioteca()" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- VISTA 1: Lista con buscador -->
+                <div id="vistaListaBiblioteca" class="p-5 flex flex-col flex-1 overflow-hidden">
+                    <div class="mb-4 shrink-0">
+                        <input type="text" id="inputBuscarBiblioteca" oninput="filtrarBibliotecaCantos()" placeholder="🔍 Buscar por título, momento o tono..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
+                        <span id="cantosTotalBadge" class="text-[11px] text-slate-400 mt-1.5 block px-1">Cargando repertorio...</span>
+                    </div>
+
+                    <div id="listaBibliotecaContainer" class="flex-1 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-700/50">
+                        <p class="text-xs text-slate-400 text-center py-8">Cargando alabanzas...</p>
+                    </div>
+                </div>
+
+                <!-- VISTA 2: Detalle de Canto Seleccionado -->
+                <div id="vistaDetalleBiblioteca" class="hidden p-6 flex-1 overflow-y-auto space-y-4">
+                    <div class="border-b border-slate-700 pb-4 flex justify-between items-start gap-4">
+                        <div>
+                            <span id="bibDetalleMomento" class="text-xs font-bold text-indigo-400 uppercase tracking-wider">-</span>
+                            <h2 id="bibDetalleTitulo" class="text-2xl font-bold text-amber-400 mt-1">-</h2>
+                        </div>
+                        <div id="bibDetalleTonoContainer" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl text-center">
+                            <span class="text-[10px] text-slate-400 block uppercase font-semibold">Tono</span>
+                            <span id="bibDetalleTono" class="text-sm font-bold text-amber-400 font-mono">-</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                        <pre id="bibDetalleContenido" class="font-mono text-xs sm:text-sm whitespace-pre-wrap text-slate-200 leading-relaxed"></pre>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button onclick="exportarBibliotecaPDF()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             Descargar PDF
                         </button>
-
-                        <button 
-                            id="btnGuardarTono" 
-                            type="button" 
-                            onclick="guardarTransporteActual()" 
-                            class="hidden px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Guardar Tono
-                        </button>
                     </div>
-                </div>
-
-                <div class="bg-slate-900 text-slate-100 p-3 sm:p-6 rounded-2xl shadow-inner font-mono overflow-x-auto whitespace-pre text-xs sm:text-sm md:text-base leading-relaxed transition-all duration-300" id="songLyricsContainer">
-                    <p class="text-slate-400 text-center py-4">Inicia sesión para visualizar las letras.</p>
                 </div>
             </div>
-            
-            <div class="mt-6 text-xs text-slate-400 text-center">
-                * Las notas musicales están en cifrado americano (C, D, E, F, G, A, B). Haz clic en un acorde para ver su posición.
-            </div>
-        </section>
-    </main>
-
-    <!-- ========================================== -->
-    <!-- MODAL: Subir / Editar Alabanzas (Director) -->
-    <!-- ========================================== -->
-    <div id="directorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transform scale-95 transition-all">
-            <div class="bg-indigo-900 text-white p-6">
-                <h3 class="text-xl font-bold">Panel del Director</h3>
-                <p class="text-xs text-indigo-200">Agrega una alabanza a la liturgia de hoy</p>
-            </div>
-            
-            <form id="directorForm" onsubmit="guardarNuevaAlabanza(event)" class="space-y-4 p-6">
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">🔍 Buscar en el Repertorio Guardado</label>
-                    <select id="modalBuscarRepertorio" onchange="cargarCancionDesdeRepertorio(this.value)" class="w-full p-2.5 rounded-xl border border-indigo-200 text-sm bg-indigo-50/50 focus:ring-2 focus:ring-indigo-500">
-                        <option value="">-- Selecciona una canción existente para reutilizarla --</option>
-                    </select>
-                    <p class="text-[10px] text-slate-400 mt-0.5">* O llena los campos de abajo si es un canto completamente nuevo.</p>
-                </div>
-
-                <hr class="border-slate-100 my-3">
-
-                <div>
-                    <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tipo de Registro</label>
-                    <select id="modalTipoPunto" onchange="alternarCamposFormulario(this.value)" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500">
-                        <option value="cancion">🎵 Alabanza / Canto Nuevo</option>
-                        <option value="general">📝 Punto General (Oración, Avisos, etc.)</option>
-                    </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Momento / Sección</label>
-                        <select id="modalMomento" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500">
-                            <option value="Introduccion">Introduccion</option>
-                            <option value="Fraternidad">Fraternidad</option>
-                            <option value="Proclamacion">Proclamacion</option>
-                            <option value="Respuesta">Respuesta</option>
-                            <option value="Despedida">Despedida</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label id="labelTitulo" class="block text-xs font-bold text-slate-600 uppercase mb-1">Nombre de la Alabanza</label>
-                        <input type="text" id="modalTitulo" required class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Ej: Gracia sublime es">
-                    </div>
-                </div>
-
-                <!-- Campos Exclusivos para Canción -->
-                <div id="seccionExclusivaCancion" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tono Base Original</label>
-                        <select id="modalTono" class="w-full p-2.5 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500 font-mono">
-
-  <option value="C">C (Do)</option>
-  <option value="C#">C# / Db</option>
-  <option value="D">D (Re)</option>
-  <option value="D#">D# / Eb</option>
-  <option value="E">E (Mi)</option>
-  <option value="F">F (Fa)</option>
-  <option value="F#">F# / Gb</option>
-  <option value="G">G (Sol)</option>
-  <option value="G#">G# / Ab</option>
-  <option value="A">A (La)</option>
-  <option value="A#">A# / Bb</option>
-  <option value="B">B (Si)</option>
-
-  <!-- Menores -->
-  <option value="Cm">Cm (Do menor)</option>
-  <option value="C#m">C#m / Dbm</option>
-  <option value="Dm">Dm (Re menor)</option>
-  <option value="D#m">D#m / Ebm</option>
-  <option value="Em">Em (Mi menor)</option>
-  <option value="Fm">Fm (Fa menor)</option>
-  <option value="F#m">F#m / Gbm</option>
-  <option value="Gm">Gm (Sol menor)</option>
-  <option value="G#m">G#m / Abm</option>
-  <option value="Am">Am (La menor)</option>
-  <option value="A#m">A#m / Bbm</option>
-  <option value="Bm">Bm (Si menor)</option>
-</select>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Letra y Acordes</label>
-                        <textarea id="modalLetra" rows="6" class="w-full p-3 rounded-xl border border-slate-200 text-xs font-mono focus:ring-2 focus:ring-indigo-500" placeholder="Escribe la letra con notas entre corchetes, ej: [C]Gracia [G]sublime..."></textarea>
-                    </div>
-                </div>
-
-                <!-- Campos Exclusivos para Punto General -->
-                <div id="seccionExclusivaGeneral" class="hidden space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Observaciones / Indicaciones</label>
-                        <textarea id="modalComentarios" rows="4" class="w-full p-3 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-indigo-500" placeholder="Detalles de la actividad, quién dirige, etc..."></textarea>
-                    </div>
-                </div>
-
-                <div class="flex justify-end gap-3 pt-2">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 rounded-xl text-slate-600 text-sm font-semibold hover:bg-slate-100 transition">Cancelar</button>
-                    <button type="submit" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition shadow-md">Guardar Cambios</button>
-                </div>
-            </form>
         </div>
-    </div>
 
-    <!-- ========================================== -->
-    <!-- MODAL: Biblioteca de Alabanzas             -->
-    <!-- ========================================== -->
-    <div id="modalBiblioteca" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-slate-800 text-slate-100 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-slate-700">
-            <!-- Header Modal -->
-            <div class="p-5 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
-                <div class="flex items-center gap-3">
-                    <button id="btnVolverBiblioteca" onclick="volverAListaBiblioteca()" class="hidden p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
+        <!-- ========================================== -->
+        <!-- MODAL: Diagrama / Gráfico de Acordes       -->
+        <!-- ========================================== -->
+        <div id="modalAcorde" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+            <div class="bg-slate-900 text-slate-100 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-700 p-6 flex flex-col items-center">
+                
+                <div class="flex justify-between items-center w-full mb-4">
+                    <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Diagrama de Acorde</span>
+                    <button onclick="cerrarModalAcorde()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
-                    <h3 class="text-lg font-bold text-white" id="tituloModalBiblioteca">📖 Biblioteca de Alabanzas</h3>
                 </div>
-                <button onclick="cerrarModalBiblioteca()" class="p-1.5 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
+
+                <!-- Selector de Instrumento -->
+                <div class="flex border-b border-slate-700 w-full justify-center gap-6 mb-4">
+                    <button id="tabGuitarra" onclick="cambiarPestanaInstrumento('guitarra')" class="pb-2 text-sm font-bold text-amber-400 border-b-2 border-amber-400 transition">Guitarra</button>
+                    <button id="tabTeclado" onclick="cambiarPestanaInstrumento('teclado')" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">Teclado</button>
+                    <button id="tabBajo" onclick="cambiarPestanaInstrumento('bajo')" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">Bajo</button>
+                </div>
+
+                <!-- Contenedor dinámico para la gráfica del acorde -->
+                <div id="contenedorDiagrama" class="w-full min-h-[220px] flex items-center justify-center bg-slate-950 rounded-xl border border-slate-800 p-4">
+                    <p class="text-xs text-slate-500 animate-pulse">Cargando gráfico...</p>
+                </div>
+
+                <button onclick="cerrarModalAcorde()" class="mt-5 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 px-4 rounded-xl transition">
+                    Cerrar
                 </button>
-            </div>
-
-            <!-- VISTA 1: Lista con buscador -->
-            <div id="vistaListaBiblioteca" class="p-5 flex flex-col flex-1 overflow-hidden">
-                <div class="mb-4 shrink-0">
-                    <input type="text" id="inputBuscarBiblioteca" oninput="filtrarBibliotecaCantos()" placeholder="🔍 Buscar por título, momento o tono..." class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500">
-                    <span id="cantosTotalBadge" class="text-[11px] text-slate-400 mt-1.5 block px-1">Cargando repertorio...</span>
-                </div>
-
-                <div id="listaBibliotecaContainer" class="flex-1 overflow-y-auto space-y-1 pr-1 divide-y divide-slate-700/50">
-                    <p class="text-xs text-slate-400 text-center py-8">Cargando alabanzas...</p>
-                </div>
-            </div>
-
-            <!-- VISTA 2: Detalle de Canto Seleccionado -->
-            <div id="vistaDetalleBiblioteca" class="hidden p-6 flex-1 overflow-y-auto space-y-4">
-                <div class="border-b border-slate-700 pb-4 flex justify-between items-start gap-4">
-                    <div>
-                        <span id="bibDetalleMomento" class="text-xs font-bold text-indigo-400 uppercase tracking-wider">-</span>
-                        <h2 id="bibDetalleTitulo" class="text-2xl font-bold text-amber-400 mt-1">-</h2>
-                    </div>
-                    <div id="bibDetalleTonoContainer" class="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-xl text-center">
-                        <span class="text-[10px] text-slate-400 block uppercase font-semibold">Tono</span>
-                        <span id="bibDetalleTono" class="text-sm font-bold text-amber-400 font-mono">-</span>
-                    </div>
-                </div>
-
-                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
-                    <pre id="bibDetalleContenido" class="font-mono text-xs sm:text-sm whitespace-pre-wrap text-slate-200 leading-relaxed"></pre>
-                </div>
-
-                <div class="flex justify-end gap-2 pt-2">
-                    <button onclick="exportarBibliotecaPDF()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Descargar PDF
-                    </button>
-                </div>
             </div>
         </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- MODAL: Diagrama / Gráfico de Acordes       -->
+    <!-- PIE DE PÁGINA / FOOTER                    -->
     <!-- ========================================== -->
-    <div id="modalAcorde" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
-        <div class="bg-slate-900 text-slate-100 rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden border border-slate-700 p-6 flex flex-col items-center">
-            
-            <div class="flex justify-between items-center w-full mb-4">
-                <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Diagrama de Acorde</span>
-                <button onclick="cerrarModalAcorde()" class="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+    <footer class="bg-indigo-950 text-indigo-200 border-t border-indigo-900/60 py-6 px-4 mt-8">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-3 text-xs text-center sm:text-left">
+            <div>
+                <p class="font-semibold text-white">Iglesia Cristo Vive &copy; 2026</p>
+                <p class="text-indigo-400 text-[11px] mt-0.5">Portal de Gestión de Liturgia y Equipo de Alabanza</p>
             </div>
-
-            <!-- Selector de Instrumento -->
-            <div class="flex border-b border-slate-700 w-full justify-center gap-6 mb-4">
-                <button id="tabGuitarra" onclick="cambiarPestanaInstrumento('guitarra')" class="pb-2 text-sm font-bold text-amber-400 border-b-2 border-amber-400 transition">Guitarra</button>
-                <button id="tabTeclado" onclick="cambiarPestanaInstrumento('teclado')" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">Teclado</button>
-                <button id="tabBajo" onclick="cambiarPestanaInstrumento('bajo')" class="pb-2 text-sm font-bold text-slate-400 hover:text-white transition">Bajo</button>
+            <div class="flex items-center gap-4 text-indigo-300 text-[11px]">
+                <span class="inline-flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Sistema en Línea
+                </span>
             </div>
-
-            <!-- Contenedor dinámico para la gráfica del acorde -->
-            <div id="contenedorDiagrama" class="w-full min-h-[220px] flex items-center justify-center bg-slate-950 rounded-xl border border-slate-800 p-4">
-                <p class="text-xs text-slate-500 animate-pulse">Cargando gráfico...</p>
-            </div>
-
-            <button onclick="cerrarModalAcorde()" class="mt-5 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 px-4 rounded-xl transition">
-                Cerrar
-            </button>
         </div>
-    </div>
+    </footer>
 
     <!-- ========================================== -->
     <!-- SCRIPT PRINCIPAL DE LA APLICACIÓN          -->
     <!-- ========================================== -->
     <script src="app.js"></script>
 
-</body>
+    </body>
 </html>

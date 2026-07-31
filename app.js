@@ -1709,3 +1709,69 @@ function obtenerTeclasCalculadas(acorde) {
         bassKey: bassKey 
     };
 }
+
+// ==========================================
+// 14. NOTIFICACIONES EN TIEMPO REAL AL EQUIPO
+// ==========================================
+
+// Inicialización de escuchadores de notificaciones (Se llama automáticamente al cargar)
+window.addEventListener('DOMContentLoaded', () => {
+    inicializarCanalNotificaciones();
+});
+
+function inicializarCanalNotificaciones() {
+    if (typeof _supabase !== 'undefined') {
+        // Reutilizamos o asignamos el canal de broadcasts
+        const canalNotificaciones = _supabase.channel('notificaciones-liturgia');
+
+        // Escuchar el evento 'orden_listo' enviado por el director
+        canalNotificaciones.on('broadcast', { event: 'orden_listo' }, (payload) => {
+            reproducirAvisoEquipo(payload.payload?.mensaje);
+        }).subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                console.log("🔔 Canal de notificaciones listo.");
+            }
+        });
+    }
+}
+
+// 1. Enviar notificación al equipo (Exclusivo para Director)
+async function notificarEquipoLiturgiaLista() {
+    const btn = document.getElementById('btnNotificarEquipo');
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+    }
+
+    try {
+        const canalNotificaciones = _supabase.channel('notificaciones-liturgia');
+        
+        await canalNotificaciones.send({
+            type: 'broadcast',
+            event: 'orden_listo',
+            payload: { mensaje: '🔔 ¡El Director ha actualizado el Orden del Día!' }
+        });
+
+        alert('✨ Notificación enviada exitosamente a los músicos y cantantes.');
+    } catch (err) {
+        console.error("Error al enviar notificación:", err);
+        alert('❌ No se pudo enviar la notificación. Verifica la conexión.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50');
+        }
+    }
+}
+
+// 2. Receptor para la notificación (Reproduce sonido y alerta a músicos/cantantes)
+function reproducirAvisoEquipo(mensaje) {
+    const audio = document.getElementById('sonidoTimbre');
+    if (audio) {
+        audio.play().catch(e => {
+            console.log("El navegador bloqueó el audio automático hasta que haya interacción previa del usuario.", e);
+        });
+    }
+    alert(mensaje || '✨ ¡El Orden del Día ya se encuentra disponible!');
+}
+    
