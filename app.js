@@ -1765,13 +1765,40 @@ async function notificarEquipoLiturgiaLista() {
 }
 
 // 2. Receptor para la notificación (Reproduce sonido y alerta a músicos/cantantes)
+// Receptor para la notificación (Reproduce sonido y alerta a músicos/cantantes)
 function reproducirAvisoEquipo(mensaje) {
     const audio = document.getElementById('sonidoTimbre');
-    if (audio) {
-        audio.play().catch(e => {
-            console.log("El navegador bloqueó el audio automático hasta que haya interacción previa del usuario.", e);
-        });
-    }
-    alert(mensaje || '✨ ¡El Orden del Día ya se encuentra disponible!');
-}
     
+    if (audio) {
+        audio.currentTime = 0; // Reiniciar el audio al segundo 0
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                // El audio comenzó a sonar correctamente
+                console.log("🔔 Timbre reproducido exitosamente.");
+            }).catch(error => {
+                console.warn("⚠️ El navegador bloqueó el audio automático:", error);
+            });
+        }
+    }
+
+    // Usar setTimeout para dar tiempo a que empiece a sonar el timbre antes de pausar la pantalla con el alert
+    setTimeout(() => {
+        alert(mensaje || '✨ ¡El Orden del Día ya se encuentra disponible!');
+    }, 300);
+}
+
+    // Activar el permiso de audio al primer clic en cualquier lugar de la pantalla
+document.addEventListener('click', function habilitarAudioNavegador() {
+    const audio = document.getElementById('sonidoTimbre');
+    if (audio) {
+        // Reproducimos y pausamos inmediatamente para ganar permiso del navegador
+        audio.play().then(() => {
+            audio.pause();
+            audio.currentTime = 0;
+        }).catch(() => {});
+    }
+    // Una vez desbloqueado, removemos este escuchador
+    document.removeEventListener('click', habilitarAudioNavegador);
+}, { once: true });
