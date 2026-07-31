@@ -354,25 +354,30 @@ function seleccionarElemento(id) {
 function transposeChord(chord, steps) {
     if (!chord) return chord;
 
+    // Manejar acordes con bajo invertido (ej. Em/G, C/E)
     if (chord.includes('/')) {
         const partes = chord.split('/');
         return transposeChord(partes[0], steps) + '/' + transposeChord(partes[1], steps);
     }
 
+    // EXPRESIÓN REGULAR MEJORADA:
+    // Captura la nota raíz (G, F#, Bb) en match[1] y el resto (m, m7, sus4, maj7, etc.) en match[2]
     const match = chord.match(/^([A-G][#b]?)(.*)$/);
     if (!match) return chord;
 
     let root = match[1];
-    let suffix = match[2];
+    let suffix = match[2]; // Conserva la calidad intacta (m, dim, 7, etc.)
 
-    if (root.endsWith('b')) {
-        const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
-        root = mapaBemoles[root] || root;
+    // Mapeo alternativo por si vienen bemoles en las letras
+    const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+    if (mapaBemoles[root]) {
+        root = mapaBemoles[root];
     }
 
     const currentIndex = scale.indexOf(root);
-    if (currentIndex === -1) return chord;
+    if (currentIndex === -1) return chord; // Si no está en las 12 notas cromáticas, devuelve el original
 
+    // Cálculo cíclico usando módulo 12
     const newIndex = (currentIndex + steps + 12) % 12;
     return scale[newIndex] + suffix;
 }
@@ -521,8 +526,6 @@ function renderizarCancionActiva() {
         `;
     }
 }
-
-
 // ==========================================
 // 6.B DICCIONARIO Y DIAGRAMA DE ACORDES
 // ==========================================
