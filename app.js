@@ -1063,26 +1063,54 @@ async function eliminarCancionDelOrden(idOrdenRow, nombrePunto) {
     }
 }
 
-async function moverPosicion(index, direccion) {
+// 1. FUNCIÓN DE REORDENAMIENTO MEJORADA
+// Reordenamiento ágil y garantizado para el Orden del Día
+async function moverPosicion(idItemActual, direccion) {
     if (currentRole !== 'director') return;
-    
-    const items = window.listaLiturgiaActiva || [];
-    const nuevoIndex = index + direccion;
 
-    if (nuevoIndex < 0 || nuevoIndex >= items.length) return;
+    // Crear una copia local de la lista actual
+    let items = [...(window.listaLiturgiaActiva || [])];
+    const indexActual = items.findIndex(item => item.id === idItemActual);
 
-    const itemActual = items[index];
-    const itemDestino = items[nuevoIndex];
+    if (indexActual === -1) return;
+
+    const indexDestino = indexActual + direccion;
+    if (indexDestino < 0 || indexDestino >= items.length) return;
+
+    // 1. Intercambiar elementos en la lista local (respuesta instantánea en pantalla)
+    const [itemMovido] = items.splice(indexActual, 1);
+    items.splice(indexDestino, 0, itemMovido);
+
+    // 2. Asignar posiciones consecutivas limpias (1, 2, 3, 4...)
+    const promesasUpdate = items.map((item, idx) => {
+        const nuevaPos = idx + 1;
+        item.posicion = nuevaPos; // Actualizar en memoria local
+        return _supabase
+            .from('liturgia')
+            .update({ posicion: nuevaPos })
+            .eq('id', item.id);
+    });
+
+    // Renderizar de inmediato para que la interfaz no se sienta lenta
+    window.listaLiturgiaActiva = items;
+    renderizarListaLiturgia(items);
 
     try {
-        await _supabase.from('liturgia').update({ posicion: itemDestino.posicion }).eq('id', itemActual.id);
-        await _supabase.from('liturgia').update({ posicion: itemActual.posicion }).eq('id', itemDestino.id);
-        await cargarLiturgiaDelDia();
+        // 3. Guardar las nuevas posiciones en la base de datos en segundo plano
+        const resultados = await Promise.all(promesasUpdate);
+        
+        const hayError = resultados.find(res => res.error);
+        if (hayError) throw hayError.error;
+
     } catch (err) {
-        console.error("Error reordenando posiciones:", err);
+        console.error("❌ Error al guardar el nuevo orden:", err);
+        alert("❌ Error de sincronización al reordenar: " + err.message);
+        // En caso de error, recargar el orden real de la BD
+        await cargarLiturgiaDelDia();
     }
 }
 
+// 2. RENDERIZADO DE LA LISTA CON BOTONES AISLADOS
 function renderizarListaLiturgia(lista) {
     const items = Array.isArray(lista) ? lista : (window.listaLiturgiaActiva || []);
     const contenedor = document.getElementById('liturgyList') || document.getElementById('listaLiturgia');
@@ -1121,13 +1149,19 @@ function renderizarListaLiturgia(lista) {
                 </span>
 
                 ${esDirector ? `
-                    <button type="button" onclick="event.stopPropagation(); moverPosicion(${index}, -1)" title="Subir" ${index === 0 ? 'disabled class="opacity-20 cursor-not-allowed text-slate-400 p-1"' : 'class="p-1 text-slate-500 hover:text-indigo-600 transition"'}>
+                    <button type="button" 
+                        onclick="event.stopPropagation(); event.preventDefault(); moverPosicion(${item.id}, -1);" 
+                        title="Subir" 
+                        ${index === 0 ? 'disabled class="opacity-20 cursor-not-allowed text-slate-400 p-1"' : 'class="p-1 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded transition"'}>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
                         </svg>
                     </button>
 
-                    <button type="button" onclick="event.stopPropagation(); moverPosicion(${index}, 1)" title="Bajar" ${index === items.length - 1 ? 'disabled class="opacity-20 cursor-not-allowed text-slate-400 p-1"' : 'class="p-1 text-slate-500 hover:text-indigo-600 transition"'}>
+                    <button type="button" 
+                        onclick="event.stopPropagation(); event.preventDefault(); moverPosicion(${item.id}, 1);" 
+                        title="Bajar" 
+                        ${index === items.length - 1 ? 'disabled class="opacity-20 cursor-not-allowed text-slate-400 p-1"' : 'class="p-1 text-slate-600 hover:text-indigo-600 hover:bg-slate-100 rounded transition"'}>
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                         </svg>
@@ -1150,7 +1184,6 @@ function renderizarListaLiturgia(lista) {
         contenedor.appendChild(itemDiv);
     });
 }
-
 // ==========================================
 // 10. TRANSPOSICIÓN Y GUARDADO
 // ==========================================
