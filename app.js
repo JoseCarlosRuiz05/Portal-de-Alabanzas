@@ -1965,7 +1965,9 @@ function obtenerNotaBaseYSufijo(tono) {
 // NAVEGACIÓN RÁPIDA (ANTERIOR / SIGUIENTE)
 // ==========================================
 
-function navegarCancion(direccion) {
+window.navegarCancion = function(direccion) {
+    console.log("👉 Navegando a canción, dirección:", direccion);
+    
     const items = window.listaLiturgiaActiva || [];
     if (!items || items.length === 0) return;
 
@@ -1973,26 +1975,67 @@ function navegarCancion(direccion) {
     const idBuscado = activeSongId || window.activeSongId;
     const indexActual = items.findIndex(item => String(item.id) === String(idBuscado));
 
-    if (indexActual === -1) {
-        // Si no hay nada seleccionado, seleccionar el primero
-        seleccionarElemento(items[0].id);
-        return;
-    }
+    let nuevoIndex = 0;
 
-    const nuevoIndex = indexActual + direccion;
+    if (indexActual === -1) {
+        nuevoIndex = 0;
+    } else {
+        nuevoIndex = indexActual + direccion;
+    }
 
     // Verificar límites
     if (nuevoIndex >= 0 && nuevoIndex < items.length) {
+        const idNuevo = items[nuevoIndex].id;
+        
         // 1. Cambiar la alabanza activa
-        seleccionarElemento(items[nuevoIndex].id);
-
-        // 2. Hacer Scroll al inicio del recuadro del canto
-        const mainVisor = document.getElementById('songLyricsContainer') || document.getElementById('songTitle');
-        if (mainVisor) {
-            mainVisor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (typeof seleccionarElemento === 'function') {
+            seleccionarElemento(idNuevo);
+        } else {
+            activeSongId = idNuevo;
+            window.activeSongId = idNuevo;
+            currentOffset = 0;
+            if (typeof renderizarListaLiturgia === 'function') renderizarListaLiturgia();
+            if (typeof renderizarCancionActiva === 'function') renderizarCancionActiva();
         }
+
+        // 2. REINICIAR SCROLLS EN MÓVIL (Tanto el del contenedor como el de la ventana)
+        setTimeout(() => {
+            // A) Reiniciar el scroll interno del recuadro negro
+            const contenedorLetra = document.getElementById('songLyricsContainer');
+            if (contenedorLetra) {
+                contenedorLetra.scrollTop = 0;
+            }
+
+            // B) Mover la pantalla del celular hacia el título de la canción (inicio de la sección)
+            const tituloSeccion = document.getElementById('songTitle') || document.getElementById('contenedorExportablePDF');
+            if (tituloSeccion) {
+                tituloSeccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 60);
     }
-}
+};
+
+window.actualizarEstadoBotonesNavegacion = function() {
+    const btnAnt = document.getElementById('btnCancionAnterior');
+    const btnSig = document.getElementById('btnCancionSiguiente');
+    if (!btnAnt && !btnSig) return;
+
+    const items = window.listaLiturgiaActiva || [];
+    const idBuscado = activeSongId || window.activeSongId;
+    const indexActual = items.findIndex(item => String(item.id) === String(idBuscado));
+
+    if (!items.length || indexActual === -1) {
+        if (btnAnt) btnAnt.disabled = true;
+        if (btnSig) btnSig.disabled = true;
+        return;
+    }
+
+    // Deshabilitar "Anterior" si estamos en el primer punto
+    if (btnAnt) btnAnt.disabled = (indexActual === 0);
+
+    // Deshabilitar "Siguiente" si estamos en el último punto
+    if (btnSig) btnSig.disabled = (indexActual === items.length - 1);
+};
 
 function actualizarEstadoBotonesNavegacion() {
     const btnAnt = document.getElementById('btnCancionAnterior');

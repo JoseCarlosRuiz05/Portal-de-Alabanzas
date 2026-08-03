@@ -128,10 +128,10 @@
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
     await OneSignal.init({
-      appId: "34dc5813-29c5-4314-83fd-c2bcd5f6a94b", // 👈 Coloca tu App ID de OneSignal aquí
+      appId: "34dc5813-29c5-4314-83fd-c2bcd5f6a94b",
       safari_web_id: "https://onesignal.com",
       notifyButton: {
-        enable: false, // Usaremos nuestra propia integración fluida al iniciar sesión
+        enable: false,
       },
     });
   });
@@ -326,32 +326,35 @@
                         <p class="text-slate-400 text-center py-4">Inicia sesión para visualizar las letras.</p>
                     </div>
                 </div>
-       <!-- NAVEGACIÓN ENTRE CANCIONES (ANTERIOR / SIGUIENTE) -->
-<div class="flex items-center justify-between gap-3 mt-4 mb-2 px-1">
-    <button 
-        id="btnCancionAnterior" 
-        onclick="navegarCancion(-1)" 
-        type="button" 
-        class="flex items-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition shadow-md border border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-        <span>Anterior</span>
-    </button>
 
-    <button 
-        id="btnCancionSiguiente" 
-        onclick="navegarCancion(1)" 
-        type="button" 
-        class="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-md border border-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none">
-        <span>Siguiente</span>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
-    </button>
-</div>
+                <!-- NAVEGACIÓN ENTRE CANCIONES ADAPTADA A MÓVILES Y COMPUTADORA -->
+                <div class="flex items-center justify-between gap-3 mt-4 mb-2 px-1 relative z-10 select-none">
+                    <button 
+                        id="btnCancionAnterior" 
+                        onclick="navegarCancion(-1)" 
+                        type="button" 
+                        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+                        class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 hover:text-white rounded-xl text-xs font-bold transition shadow-md border border-slate-700 disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none cursor-pointer">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        <span>Anterior</span>
+                    </button>
+
+                    <button 
+                        id="btnCancionSiguiente" 
+                        onclick="navegarCancion(1)" 
+                        type="button" 
+                        style="touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
+                        class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white rounded-xl text-xs font-bold transition shadow-md border border-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:transform-none cursor-pointer">
+                        <span>Siguiente</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
                 
-                <div class="mt-6 text-xs text-slate-400 text-center">
+                <div class="mt-4 text-xs text-slate-400 text-center">
                     * Las notas musicales están en cifrado americano (C, D, E, F, G, A, B). Haz clic en un acorde para ver su posición.
                 </div>
             </section>
