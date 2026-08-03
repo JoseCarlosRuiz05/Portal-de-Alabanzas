@@ -6,6 +6,10 @@ const SUPABASE_ANON_KEY = "sb_publishable_5vP3-egGHx8pzJ012iQHDw_8ozMTbz2";
 
 const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+// Configuración de OneSignal para Push con App Cerrada
+const ONESIGNAL_APP_ID = "34dc5813-29c5-4314-83fd-c2bcd5f6a94b"; // 👈 Sustituye por tu App ID
+const ONESIGNAL_REST_API_KEY = "os_v2_app_gtofqezjyvbrja75yk6nl5vjjp7ghkaeyice7fvrprk6gbc6sxyj2asv2f4gxuuyxamr6ppj6olmi3dbe3g6wvz2gfhftktfvcjpfsi"; // 👈 Tu REST API Key de OneSignal (Settings -> Keys & IDs)
+
 // ==========================================
 // 2. ESTADO GLOBAL DE LA APLICACIÓN
 // ==========================================
@@ -172,6 +176,9 @@ async function obtenerRolUsuario(userId, userEmail, btnSubmit) {
     } catch (e) {
         console.warn("Error al inicializar la presencia:", e);
     }
+
+    // Solicitar permiso de notificaciones push al usuario
+    solicitarPermisosPushUsuario();
 
     alternarVisibilidadUI(false);
 
@@ -342,7 +349,9 @@ function cargarCancionDesdeRepertorio(idCancion) {
 
 function seleccionarElemento(id) {
     activeSongId = id;
+    window.activeSongId = id; // 👈 CRUCIAL: Sincroniza con el objeto global window
     currentOffset = 0; 
+    window.currentOffset = 0;
     renderizarListaLiturgia();
     renderizarCancionActiva();
 }
@@ -378,8 +387,9 @@ function transposeChord(chord, steps) {
 }
 
 function renderizarCancionActiva() {
-    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
-                 || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
+    // Comparación segura con String para evitar fallos si los IDs son number o string
+    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => String(c.id) === String(activeSongId))) 
+                 || (window.cancionesDB && window.cancionesDB.find(c => String(c.id) === String(activeSongId)));
     
     const transposerWidget = document.getElementById('transposerWidget');
     const btnGuardar = document.getElementById('btnGuardarTono');
@@ -413,15 +423,34 @@ function renderizarCancionActiva() {
             if (transposerWidget) transposerWidget.classList.remove('hidden');
         }
 
-        const idxOriginal = scale.indexOf(cancion.tono_original);
+        // ==========================================
+        // 🛠️ CORRECCIÓN: SEPARAR NOTA RAÍZ DE SUFIJO (ej: "Bm" -> root: "B", suffix: "m")
+        // ==========================================
+        let root = cancion.tono_original;
+        let suffix = "";
+        
+        const matchNote = cancion.tono_original.match(/^([A-G][#b]?)(.*)$/);
+        if (matchNote) {
+            root = matchNote[1];
+            suffix = matchNote[2] || "";
+
+            // Convertir bemoles a sostenidos para coincidir con la escala cromática global
+            const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+            if (mapaBemoles[root]) root = mapaBemoles[root];
+        }
+
+        const idxOriginal = scale.indexOf(root);
         if (idxOriginal !== -1) {
             const idxActual = (idxOriginal + currentOffset + 12) % 12;
-            tonoCalculado = scale[idxActual];
+            tonoCalculado = scale[idxActual] + suffix; // Mantiene el tono menor ("Cm", "F#m", etc.)
         }
-        document.getElementById('currentTone').innerText = tonoCalculado;
+        
+        const currentToneElem = document.getElementById('currentTone');
+        if (currentToneElem) currentToneElem.innerText = tonoCalculado;
     } else {
         if (transposerWidget) transposerWidget.classList.add('hidden');
-        document.getElementById('currentTone').innerText = "-";
+        const currentToneElem = document.getElementById('currentTone');
+        if (currentToneElem) currentToneElem.innerText = "-";
     }
 
     if (btnGuardar) {
@@ -513,7 +542,12 @@ function renderizarCancionActiva() {
             </div>
         `;
     }
-}
+    // Actualizar estado de botones Anterior / Siguiente
+    if (typeof actualizarEstadoBotonesNavegacion === 'function') {
+        actualizarEstadoBotonesNavegacion();
+    }
+} // 👈 Fin de renderizarCancionActiva
+
 
 // ==========================================
 // 6.B DICCIONARIO Y DIAGRAMA DE ACORDES
@@ -1063,12 +1097,10 @@ async function eliminarCancionDelOrden(idOrdenRow, nombrePunto) {
     }
 }
 
-// 1. FUNCIÓN DE REORDENAMIENTO MEJORADA
 // Reordenamiento ágil y garantizado para el Orden del Día
 async function moverPosicion(idItemActual, direccion) {
     if (currentRole !== 'director') return;
 
-    // Crear una copia local de la lista actual
     let items = [...(window.listaLiturgiaActiva || [])];
     const indexActual = items.findIndex(item => item.id === idItemActual);
 
@@ -1077,40 +1109,33 @@ async function moverPosicion(idItemActual, direccion) {
     const indexDestino = indexActual + direccion;
     if (indexDestino < 0 || indexDestino >= items.length) return;
 
-    // 1. Intercambiar elementos en la lista local (respuesta instantánea en pantalla)
     const [itemMovido] = items.splice(indexActual, 1);
     items.splice(indexDestino, 0, itemMovido);
 
-    // 2. Asignar posiciones consecutivas limpias (1, 2, 3, 4...)
     const promesasUpdate = items.map((item, idx) => {
         const nuevaPos = idx + 1;
-        item.posicion = nuevaPos; // Actualizar en memoria local
+        item.posicion = nuevaPos; 
         return _supabase
             .from('liturgia')
             .update({ posicion: nuevaPos })
             .eq('id', item.id);
     });
 
-    // Renderizar de inmediato para que la interfaz no se sienta lenta
     window.listaLiturgiaActiva = items;
     renderizarListaLiturgia(items);
 
     try {
-        // 3. Guardar las nuevas posiciones en la base de datos en segundo plano
         const resultados = await Promise.all(promesasUpdate);
-        
         const hayError = resultados.find(res => res.error);
         if (hayError) throw hayError.error;
 
     } catch (err) {
         console.error("❌ Error al guardar el nuevo orden:", err);
         alert("❌ Error de sincronización al reordenar: " + err.message);
-        // En caso de error, recargar el orden real de la BD
         await cargarLiturgiaDelDia();
     }
 }
 
-// 2. RENDERIZADO DE LA LISTA CON BOTONES AISLADOS
 function renderizarListaLiturgia(lista) {
     const items = Array.isArray(lista) ? lista : (window.listaLiturgiaActiva || []);
     const contenedor = document.getElementById('liturgyList') || document.getElementById('listaLiturgia');
@@ -1184,55 +1209,114 @@ function renderizarListaLiturgia(lista) {
         contenedor.appendChild(itemDiv);
     });
 }
+
+// ==========================================
+// 10. TRANSPOSICIÓN Y GUARDADO
+// ==========================================
+
 // ==========================================
 // 10. TRANSPOSICIÓN Y GUARDADO
 // ==========================================
 
 function transpose(delta) {
-    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
-                 || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
+    const idBuscado = activeSongId || window.activeSongId;
+    
+    // Comparación segura convirtiendo IDs a String
+    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => String(c.id) === String(idBuscado))) 
+                 || (window.cancionesDB && window.cancionesDB.find(c => String(c.id) === String(idBuscado)));
+                 
     if (!cancion) return;
 
     const esCancion = cancion.tipo === 'cancion' || (cancion.tono_original && cancion.tono_original !== '-');
     if (!esCancion) return;
 
     currentOffset += delta;
+    window.currentOffset = currentOffset; // Sincroniza estado global
+
     renderizarCancionActiva();
 }
 
-async function guardarTransporteActual() {
-    if (currentRole !== 'director') return;
+// ==========================================
+// TRANSPOSICIÓN Y GUARDADO MEJORADO
+// ==========================================
 
-    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => c.id === activeSongId)) 
-                 || (window.cancionesDB && window.cancionesDB.find(c => c.id === activeSongId));
+window.guardarTransporteActual = async function() {
+    console.log("👉 Intentando guardar tono...");
+
+    if (typeof currentRole !== 'undefined' && currentRole !== 'director') {
+        alert("⚠️ Solo el Director puede guardar el nuevo tono.");
+        return;
+    }
+
+    // Unifica la lectura del ID activo desde cualquier scope
+    const idBuscado = activeSongId || window.activeSongId;
+
+    if (!idBuscado) {
+        alert("⚠️ No hay ninguna canción seleccionada activamente para guardar.");
+        return;
+    }
+
+    // Buscar canción activa comparando IDs de forma segura
+    const cancion = (window.listaLiturgiaActiva && window.listaLiturgiaActiva.find(c => String(c.id) === String(idBuscado))) 
+                 || (window.cancionesDB && window.cancionesDB.find(c => String(c.id) === String(idBuscado)));
     
-    if (!cancion || currentOffset === 0) return;
+    if (!cancion) {
+        alert("⚠️ No hay ninguna canción seleccionada activamente para guardar.");
+        console.warn("activeSongId actual:", idBuscado);
+        return;
+    }
 
-    const idxOriginal = scale.indexOf(cancion.tono_original);
-    if (idxOriginal === -1) return;
+    const offsetActual = (typeof currentOffset !== 'undefined' && currentOffset !== 0) ? currentOffset : (window.currentOffset || 0);
 
-    const idxNuevo = (idxOriginal + currentOffset + 12) % 12;
-    const nuevoTono = scale[idxNuevo];
+    if (offsetActual === 0) {
+        alert("⚠️ La canción ya está en su tono original o no tiene cambios por guardar.");
+        return;
+    }
 
+    // Obtener tono original de forma segura y separar sufijo (ej: "Bm" -> root: "B", suffix: "m")
+    const tonoOrig = cancion.tono_original || "C";
+    let { root, suffix } = (typeof obtenerNotaBaseYSufijo === 'function') 
+                            ? obtenerNotaBaseYSufijo(tonoOrig) 
+                            : { root: tonoOrig, suffix: '' };
+
+    // Escala cromática local de respaldo por si 'scale' global falla
+    const escalaUsar = (typeof scale !== 'undefined') ? scale : ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+    const idxOriginal = escalaUsar.indexOf(root);
+    if (idxOriginal === -1) {
+        alert(`⚠️ El tono original ("${tonoOrig}") no coincide con la escala de transposición.`);
+        return;
+    }
+
+    // Calcular el nuevo tono uniendo la nueva raíz transpuesta con el sufijo original
+    const idxNuevo = (idxOriginal + offsetActual + 12000) % 12; // Evita valores negativos
+    const nuevoTono = escalaUsar[idxNuevo] + suffix;
+
+    console.log(`🎵 Transponiendo "${cancion.titulo}" a ${nuevoTono}...`);
+
+    // Ejecutar guardado en Supabase
     await guardarTonoTransportado(cancion, nuevoTono);
-}
+};
 
+// FUNCIÓN DE IMPACTO Y ACTUALIZACIÓN EN SUPABASE
 async function guardarTonoTransportado(cancion, nuevoTono) {
-    if (currentRole !== 'director') return;
-    if (!cancion) return;
-    if (!confirm(`¿Deseas guardar permanentemente el nuevo tono (${nuevoTono}) y actualizar los acordes de "${cancion.titulo}"?`)) return;
+    if (!confirm(`¿Deseas guardar permanentemente el nuevo tono (${nuevoTono}) y actualizar los acordes de "${cancion.titulo}"?`)) {
+        return;
+    }
 
     try {
         let letraOriginal = cancion.letra_acordes || "";
         let letraTranspuesta = "";
+        const offsetActual = currentOffset || window.currentOffset || 0;
 
+        // Transponer los acordes del texto
         if (letraOriginal.includes('[') && letraOriginal.includes(']')) {
-            letraTranspuesta = letraOriginal.replace(/\[(.*?)\]/g, (match, chord) => `[${transposeChord(chord, currentOffset)}]`);
+            letraTranspuesta = letraOriginal.replace(/\[(.*?)\]/g, (match, chord) => `[${transposeChord(chord, offsetActual)}]`);
         } else {
             let lineas = letraOriginal.split('\n');
             let lineasProcesadas = lineas.map(linea => {
                 let lineaLimpia = linea.trim();
-                if (lineaLimpia === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG)/i.test(lineaLimpia)) {
+                if (lineaLimpia === "" || /^(VERSO|CORO|PUENTE|INTRO|OUTRO|FINAL|ESTROFA|TAG|PARA TERMINAR)/i.test(lineaLimpia)) {
                     return linea;
                 }
 
@@ -1240,7 +1324,7 @@ async function guardarTonoTransportado(cancion, nuevoTono) {
                 const regValidator = new RegExp(REGEX_ACORDE_STRING, "i");
                 if (palabras.every(palabra => regValidator.test(palabra))) {
                     let tokens = linea.split(/(\s+)/); 
-                    return tokens.map(token => token.trim() === "" ? token : transposeChord(token.trim(), currentOffset)).join('');
+                    return tokens.map(token => token.trim() === "" ? token : transposeChord(token.trim(), offsetActual)).join('');
                 }
 
                 return linea;
@@ -1249,6 +1333,9 @@ async function guardarTonoTransportado(cancion, nuevoTono) {
             letraTranspuesta = lineasProcesadas.join('\n');
         }
 
+        console.log("💾 Guardando cambios en Supabase...");
+
+        // 1. Actualizar en la lista de la liturgia del día
         const { error: errorLiturgia } = await _supabase
             .from('liturgia')
             .update({ tono_original: nuevoTono, letra_acordes: letraTranspuesta })
@@ -1256,24 +1343,25 @@ async function guardarTonoTransportado(cancion, nuevoTono) {
 
         if (errorLiturgia) throw errorLiturgia;
 
+        // 2. Si viene de la tabla general de canciones, actualizar también allá
         if (cancion.cancion_id) {
-            const { error: errorRepertorio } = await _supabase
+            await _supabase
                 .from('canciones')
                 .update({ tono_original: nuevoTono, letra_acordes: letraTranspuesta })
                 .eq('id', cancion.cancion_id);
-
-            if (errorRepertorio) console.warn("No se pudo actualizar el tono en el repertorio global:", errorRepertorio.message);
         }
 
-        alert(`✅ Tono y acordes guardados exitosamente en ${nuevoTono}.`);
+        alert(`✅ Tono guardado exitosamente en ${nuevoTono}.`);
 
+        // Reiniciar variables de transposición y recargar vistas
         currentOffset = 0;
-        await obtenerRepertorioGlobal();
-        await cargarLiturgiaDelDia();
+        window.currentOffset = 0;
+        if (typeof obtenerRepertorioGlobal === 'function') await obtenerRepertorioGlobal();
+        if (typeof cargarLiturgiaDelDia === 'function') await cargarLiturgiaDelDia();
 
     } catch (error) {
-        alert("❌ Error al guardar el nuevo tono y acordes: " + error.message);
-        console.error("Error en guardarTonoTransportado:", error);
+        console.error("Error al guardar en Supabase:", error);
+        alert("❌ Error al guardar el nuevo tono: " + error.message);
     }
 }
 
@@ -1289,6 +1377,7 @@ async function vaciarOrdenDelDia() {
         alert("🗑️ El orden del día ha sido vaciado por completo.");
         
         activeSongId = null;
+        window.activeSongId = null;
         await cargarLiturgiaDelDia();
         
         ['songTitle', 'songCategory', 'originalTone', 'currentTone'].forEach(id => {
@@ -1740,6 +1829,22 @@ document.addEventListener('click', function desbloquearAudioNavegador() {
     }
 }, { once: true });
 
+// Solicitar permisos de notificación push para OneSignal al usuario
+function solicitarPermisosPushUsuario() {
+    if (window.OneSignalDeferred) {
+        window.OneSignalDeferred.push(async function(OneSignal) {
+            if (!OneSignal.Notifications.permission) {
+                console.log("🔔 Solicitando permiso de notificaciones PUSH...");
+                await OneSignal.Notifications.requestPermission();
+            }
+            if (window.usuarioActual) {
+                // Asociamos al usuario con su ID de Supabase en OneSignal
+                await OneSignal.login(window.usuarioActual.id);
+            }
+        });
+    }
+}
+
 // Inicialización de escuchadores de notificaciones
 window.addEventListener('DOMContentLoaded', () => {
     inicializarCanalNotificaciones();
@@ -1767,16 +1872,46 @@ async function notificarEquipoLiturgiaLista() {
         btn.classList.add('opacity-50');
     }
 
+    const mensajeNotificacion = '🔔 ¡El Director ha actualizado el Orden del Día!';
+
     try {
+        // 1. Envío Realtime (para usuarios que tienen la pantalla/app abierta)
         const canalNotificaciones = _supabase.channel('notificaciones-liturgia');
-        
         await canalNotificaciones.send({
             type: 'broadcast',
             event: 'orden_listo',
-            payload: { mensaje: '🔔 ¡El Director ha actualizado el Orden del Día!' }
+            payload: { mensaje: mensajeNotificacion }
         });
 
+        // 2. Envío PUSH vía OneSignal (para usuarios con el NAVEGADOR O APP CERRADA)
+        if (ONESIGNAL_APP_ID && ONESIGNAL_REST_API_KEY) {
+            const respuestaPush = await fetch("https://onesignal.com/api/v1/notifications", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json; charset=utf-8",
+                    "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`
+                },
+                body: JSON.stringify({
+                    app_id: ONESIGNAL_APP_ID,
+                    included_segments: ["Total Subscriptions"], // Envía a todos los miembros suscritos
+                    headings: { "es": "Portal de Alabanza" },
+                    contents: { "es": mensajeNotificacion },
+
+                    // 🔊 PARÁMETROS FORZADOS PARA SONIDO Y PANTALLA CERRADA
+                    priority: 10,                      // Prioridad Máxima (Fuerza despertar el dispositivo)
+                    android_sound: "notification",    // Tono predeterminado de Android
+                    ios_sound: "default",             // Tono predeterminado del iPhone
+                    android_visibility: 1,            // Muestra en pantalla de bloqueo
+                    small_icon: "ic_stat_onesignal_default"
+                })
+            });
+
+            const datosRespuesta = await respuestaPush.json();
+            console.log("📲 Respuesta de OneSignal Push:", datosRespuesta);
+        }
+
         alert('✨ Notificación enviada exitosamente a los músicos y cantantes.');
+
     } catch (err) {
         console.error("Error al enviar notificación:", err);
         alert('❌ No se pudo enviar la notificación. Verifica la conexión.');
@@ -1805,8 +1940,78 @@ function reproducirAvisoEquipo(mensaje) {
         }
     }
 
-    // Retrasar el alert para no bloquear la ejecución del audio al recibir la señal
     setTimeout(() => {
         alert(mensaje || '✨ ¡El Orden del Día ya se encuentra disponible!');
     }, 400);
+}
+
+// Helper para separar la nota raíz (C, F#, Bb...) del sufijo (m, maj7, 7...)
+function obtenerNotaBaseYSufijo(tono) {
+    if (!tono || tono === '-') return { root: '-', suffix: '' };
+    const match = tono.match(/^([A-G][#b]?)(.*)$/);
+    if (!match) return { root: tono, suffix: '' };
+    
+    let root = match[1];
+    const suffix = match[2] || '';
+
+    // Convertir bemoles a sostenidos para coincidir con el arreglo scale
+    const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
+    if (mapaBemoles[root]) root = mapaBemoles[root];
+
+    return { root, suffix };
+}
+
+// ==========================================
+// NAVEGACIÓN RÁPIDA (ANTERIOR / SIGUIENTE)
+// ==========================================
+
+function navegarCancion(direccion) {
+    const items = window.listaLiturgiaActiva || [];
+    if (!items || items.length === 0) return;
+
+    // Buscar la posición actual de la canción activa
+    const idBuscado = activeSongId || window.activeSongId;
+    const indexActual = items.findIndex(item => String(item.id) === String(idBuscado));
+
+    if (indexActual === -1) {
+        // Si no hay nada seleccionado, seleccionar el primero
+        seleccionarElemento(items[0].id);
+        return;
+    }
+
+    const nuevoIndex = indexActual + direccion;
+
+    // Verificar límites
+    if (nuevoIndex >= 0 && nuevoIndex < items.length) {
+        // 1. Cambiar la alabanza activa
+        seleccionarElemento(items[nuevoIndex].id);
+
+        // 2. Hacer Scroll al inicio del recuadro del canto
+        const mainVisor = document.getElementById('songLyricsContainer') || document.getElementById('songTitle');
+        if (mainVisor) {
+            mainVisor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+}
+
+function actualizarEstadoBotonesNavegacion() {
+    const btnAnt = document.getElementById('btnCancionAnterior');
+    const btnSig = document.getElementById('btnCancionSiguiente');
+    if (!btnAnt && !btnSig) return;
+
+    const items = window.listaLiturgiaActiva || [];
+    const idBuscado = activeSongId || window.activeSongId;
+    const indexActual = items.findIndex(item => String(item.id) === String(idBuscado));
+
+    if (!items.length || indexActual === -1) {
+        if (btnAnt) btnAnt.disabled = true;
+        if (btnSig) btnSig.disabled = true;
+        return;
+    }
+
+    // Deshabilitar "Anterior" si estamos en el primer punto
+    if (btnAnt) btnAnt.disabled = (indexActual === 0);
+
+    // Deshabilitar "Siguiente" si estamos en el último punto
+    if (btnSig) btnSig.disabled = (indexActual === items.length - 1);
 }
