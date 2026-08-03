@@ -398,6 +398,7 @@ function renderizarCancionActiva() {
     if (!cancion) {
         if (lyricsContainer) {
             lyricsContainer.innerHTML = "<p class='text-slate-400 text-center py-6'>Selecciona un punto o alabanza de la lista para ver el detalle.</p>";
+            lyricsContainer.scrollTop = 0; // Reiniciar scroll
         }
         document.getElementById('songTitle').innerText = "Selecciona una Alabanza";
         document.getElementById('songCategory').innerText = "-";
@@ -434,7 +435,7 @@ function renderizarCancionActiva() {
             root = matchNote[1];
             suffix = matchNote[2] || "";
 
-            // Convertir bemoles a sostenidos para coincidir con la escala cromática global
+            // Convertir bemoles a sostenidos para coincidir con la escala cromática global
             const mapaBemoles = { 'Db': 'C#', 'Eb': 'D#', 'Gb': 'F#', 'Ab': 'G#', 'Bb': 'A#' };
             if (mapaBemoles[root]) root = mapaBemoles[root];
         }
@@ -542,11 +543,17 @@ function renderizarCancionActiva() {
             </div>
         `;
     }
+
+    // 🚀 REINICIAR EL SCROLL INTERNO AL INICIO CADA VEZ QUE SE RENDERIZA
+    if (lyricsContainer) {
+        lyricsContainer.scrollTop = 0;
+    }
+
     // Actualizar estado de botones Anterior / Siguiente
     if (typeof actualizarEstadoBotonesNavegacion === 'function') {
         actualizarEstadoBotonesNavegacion();
     }
-} // 👈 Fin de renderizarCancionActiva
+}
 
 
 // ==========================================
