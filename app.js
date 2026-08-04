@@ -2005,24 +2005,25 @@ window.navegarCancion = function(direccion) {
             if (typeof renderizarCancionActiva === 'function') renderizarCancionActiva();
         }
 
-        // 2. REINICIAR SCROLLS EN MÓVIL
-        setTimeout(() => {
-            // A) Reiniciar el scroll interno del recuadro negro
-            const contenedorLetra = document.getElementById('songLyricsContainer');
-            if (contenedorLetra) {
-                contenedorLetra.scrollTop = 0;
-            }
+        // 2. REINICIAR SCROLL INTERNO Y DESPLAZAR PANTALLA MÓVIL AL TÍTULO
+        requestAnimationFrame(() => {
+            setTimeout(() => {
+                // A) Reiniciar scroll del recuadro negro
+                const contenedorLetra = document.getElementById('songLyricsContainer');
+                if (contenedorLetra) {
+                    contenedorLetra.scrollTop = 0;
+                }
 
-            // B) Mover la pantalla del celular exactamente al TÍTULO de la canción
-            const elementoTitulo = document.getElementById('songTitle') || document.getElementById('songCategory');
-            if (elementoTitulo) {
-                // Calcular posición exacta considerando la barra de navegación fija (~80px)
-                const yOffset = -90; 
-                const y = elementoTitulo.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                // B) Llevar la pantalla al Título del Canto (Anclaje)
+                const destinoScroll = document.getElementById('cabeceraVisorCanto') || document.getElementById('songTitle');
                 
-                window.scrollTo({ top: y, behavior: 'smooth' });
-            }
-        }, 80); // Pequeña pausa para permitir que el DOM renderice la nueva canción
+                if (destinoScroll) {
+                    destinoScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                } else {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }
+            }, 100); // 100ms da tiempo suficiente a las pantallas táctiles para renderizar
+        });
     }
 };
 
