@@ -2005,7 +2005,7 @@ window.navegarCancion = function(direccion) {
             if (typeof renderizarCancionActiva === 'function') renderizarCancionActiva();
         }
 
-        // 2. REINICIAR SCROLLS EN MÓVIL (Tanto el del contenedor como el de la ventana)
+        // 2. REINICIAR SCROLLS EN MÓVIL
         setTimeout(() => {
             // A) Reiniciar el scroll interno del recuadro negro
             const contenedorLetra = document.getElementById('songLyricsContainer');
@@ -2013,12 +2013,16 @@ window.navegarCancion = function(direccion) {
                 contenedorLetra.scrollTop = 0;
             }
 
-            // B) Mover la pantalla del celular hacia el título de la canción (inicio de la sección)
-            const tituloSeccion = document.getElementById('songTitle') || document.getElementById('contenedorExportablePDF');
-            if (tituloSeccion) {
-                tituloSeccion.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // B) Mover la pantalla del celular exactamente al TÍTULO de la canción
+            const elementoTitulo = document.getElementById('songTitle') || document.getElementById('songCategory');
+            if (elementoTitulo) {
+                // Calcular posición exacta considerando la barra de navegación fija (~80px)
+                const yOffset = -90; 
+                const y = elementoTitulo.getBoundingClientRect().top + window.pageYOffset + yOffset;
+                
+                window.scrollTo({ top: y, behavior: 'smooth' });
             }
-        }, 60);
+        }, 80); // Pequeña pausa para permitir que el DOM renderice la nueva canción
     }
 };
 
