@@ -2008,21 +2008,31 @@ window.navegarCancion = function(direccion) {
         // 2. REINICIAR SCROLL INTERNO Y DESPLAZAR PANTALLA MÓVIL AL TÍTULO
         requestAnimationFrame(() => {
             setTimeout(() => {
-                // A) Reiniciar scroll del recuadro negro
+                // A) Reiniciar el scroll interno del recuadro negro
                 const contenedorLetra = document.getElementById('songLyricsContainer');
                 if (contenedorLetra) {
                     contenedorLetra.scrollTop = 0;
                 }
 
-                // B) Llevar la pantalla al Título del Canto (Anclaje)
-                const destinoScroll = document.getElementById('cabeceraVisorCanto') || document.getElementById('songTitle');
+                // B) Calcular posición absoluta del título y compensar la barra superior morada
+                const elementoDestino = document.getElementById('cabeceraVisorCanto') 
+                                     || document.getElementById('songCategory') 
+                                     || document.getElementById('songTitle');
                 
-                if (destinoScroll) {
-                    destinoScroll.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (elementoDestino) {
+                    const rect = elementoDestino.getBoundingClientRect();
+                    const posicionAbsoluta = rect.top + window.pageYOffset;
+                    // Le restamos 100px para que la barra de navegación morada no tape el título
+                    const posicionAjustada = Math.max(0, posicionAbsoluta - 100);
+
+                    window.scrollTo({
+                        top: posicionAjustada,
+                        behavior: 'smooth'
+                    });
                 } else {
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                 }
-            }, 100); // 100ms da tiempo suficiente a las pantallas táctiles para renderizar
+            }, 100);
         });
     }
 };
