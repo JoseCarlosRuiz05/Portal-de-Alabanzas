@@ -120,6 +120,58 @@
         size: A4 portrait;
         margin: 10mm;
     }
+
+    /* =========================================================
+   AJUSTES PARA MODO HORIZONTAL (LANDSCAPE) Y CABECERA COMPACTA
+   ========================================================= */
+
+/* Cuando la pantalla esté acostada / horizontal */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    header, .navbar, .header-container {
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        transition: all 0.3s ease;
+    }
+
+    /* Reducir tamaño del logo */
+    header img, .navbar-logo img {
+        max-height: 32px !important;
+        width: auto !important;
+    }
+
+    /* Reducir texto del título de la iglesia */
+    header h1, header h2, .navbar-title {
+        font-size: 1rem !important;
+        line-height: 1.1 !important;
+    }
+
+    /* Ocultar subtítulos o textos secundarios no esenciales en horizontal */
+    header p, .navbar-subtitle {
+        display: none !important;
+    }
+
+    /* Hacer botones de acción más compactos */
+    header button, header .btn, header .user-badge {
+        padding: 0.25rem 0.5rem !important;
+        font-size: 0.8rem !important;
+    }
+}
+
+/* Clase dinámica que reduce la barra al hacer scroll */
+header.header-compact, .navbar.header-compact {
+    padding-top: 0.2rem !important;
+    padding-bottom: 0.2rem !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+header.header-compact img {
+    max-height: 30px !important;
+}
+
+header.header-compact p, header.header-compact .navbar-subtitle {
+    display: none !important;
+}
+
 </style>
 
 <!-- OneSignal Web Push SDK -->

@@ -2080,3 +2080,15 @@ function actualizarEstadoBotonesNavegacion() {
     // Deshabilitar "Siguiente" si estamos en el último punto
     if (btnSig) btnSig.disabled = (indexActual === items.length - 1);
 }
+
+// Reducir la barra superior al hacer scroll
+window.addEventListener('scroll', () => {
+    const header = document.querySelector('header') || document.querySelector('.navbar');
+    if (!header) return;
+
+    if (window.scrollY > 40) {
+        header.classList.add('header-compact');
+    } else {
+        header.classList.remove('header-compact');
+    }
+});
