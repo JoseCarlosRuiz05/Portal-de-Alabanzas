@@ -2092,3 +2092,90 @@ window.addEventListener('scroll', () => {
         header.classList.remove('header-compact');
     }
 });
+
+// ==========================================
+// 13. EXPORTACIÓN DE DOCUMENTOS (PDF)
+// ==========================================
+
+function exportarCancionPDF() {
+    const tituloElemento = document.getElementById('songTitle');
+    const tituloCancion = tituloElemento ? tituloElemento.innerText.trim() : 'Alabanza';
+    const tonoOriginal = document.getElementById('originalTone')?.innerText || '-';
+    const tonoActual = document.getElementById('currentTone')?.innerText || '-';
+    const lyricsContainer = document.getElementById('songLyricsContainer');
+
+    if (!lyricsContainer || lyricsContainer.innerText.includes('Selecciona una Alabanza')) {
+        alert("⚠️ Selecciona una alabanza válida para exportar.");
+        return;
+    }
+
+    // Crear un contenedor temporal para dar formato limpio al PDF
+    const elementoExportar = document.createElement('div');
+    elementoExportar.style.padding = '20px';
+    elementoExportar.style.fontFamily = 'sans-serif';
+    elementoExportar.style.color = '#000000';
+    elementoExportar.style.backgroundColor = '#ffffff';
+
+    elementoExportar.innerHTML = `
+        <div style="border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 15px;">
+            <h1 style="font-size: 22px; font-weight: bold; margin: 0; color: #1e293b;">${tituloCancion}</h1>
+            <p style="font-size: 12px; color: #64748b; margin: 5px 0 0 0;">
+                Tono Original: <strong>${tonoOriginal}</strong> | Tono Actual: <strong>${tonoActual}</strong>
+            </p>
+        </div>
+        <div style="font-size: 14px; line-height: 1.6; font-family: monospace; white-space: pre-wrap;">
+            ${lyricsContainer.innerHTML}
+        </div>
+    `;
+
+    // Opciones para html2pdf
+    const opciones = {
+        margin:       10,
+        filename:     `${tituloCancion.replace(/\s+/g, '_')}_Chords.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    // Generar PDF
+    if (typeof html2pdf !== 'undefined') {
+        html2pdf().set(opciones).from(elementoExportar).save();
+    } else {
+        // Fallback nativo utilizando la ventana de impresión
+        const ventanaImpresion = window.open('', '_blank');
+        ventanaImpresion.document.write(`
+            <html>
+                <head>
+                    <title>${tituloCancion}</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 20px; color: #000; }
+                        pre { font-family: monospace; font-size: 14px; white-space: pre-wrap; }
+                        .chord { font-weight: bold; color: #d97706; }
+                    </style>
+                </head>
+                <body>
+                    ${elementoExportar.innerHTML}
+                </body>
+            </html>
+        `);
+        ventanaImpresion.document.close();
+        ventanaImpresion.focus();
+        ventanaImpresion.print();
+        ventanaImpresion.close();
+    }
+}
+// ==========================================
+// REDUCCIÓN DE LA BARRA AZUL AL HACER SCROLL
+// ==========================================
+window.addEventListener('scroll', function() {
+    // Reemplaza 'header' por el id o clase de tu barra si es distinto
+    const header = document.querySelector('header') || document.querySelector('.navbar');
+    
+    if (header) {
+        if (window.scrollY > 30) {
+            header.classList.add('header-scrolled');
+        } else {
+            header.classList.remove('header-scrolled');
+        }
+    }
+});
